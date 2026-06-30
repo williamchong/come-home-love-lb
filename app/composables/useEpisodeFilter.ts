@@ -1,4 +1,4 @@
-import type { Dataset } from './useDataset'
+import type { CoreDataset } from './useDataset'
 import type { Episode } from '~/types'
 
 export type SortKey = 'no-asc' | 'no-desc'
@@ -37,7 +37,7 @@ export function activeFilterCount(s: FilterState) {
  * Reactive episode filter. Facets combine with AND across types and OR within a
  * type. State is mirrored to the URL query so filtered views are shareable.
  */
-export function useEpisodeFilter(ds: Ref<Dataset | null | undefined>) {
+export function useEpisodeFilter(ds: Ref<CoreDataset | null | undefined>) {
   const route = useRoute()
   const router = useRouter()
   const state = useFilterState()
