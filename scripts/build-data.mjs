@@ -366,7 +366,8 @@ function buildTags(episodes, plotlines, characters, overlay, ctx) {
 
 // ---------------------------------------------------------------------------
 // Searchable nicknames per character: curated overlay.nicknames + reversed
-// overlay.aliases (nickname → canonical) + the 諧音 homophone pun.
+// overlay.aliases (nickname → canonical) + the 諧音 homophone pun + the English
+// name many bios open with (e.g. "David出生於…", "KC是…", "Peter；…").
 function attachAliases(characters, overlay) {
   const nicknames = overlay.nicknames || {}
   const reverse = new Map()
@@ -378,6 +379,10 @@ function attachAliases(characters, overlay) {
     const set = new Set([...(nicknames[c.name] || []), ...(reverse.get(c.name) || [])])
     const homophone = trimEdgePunct(c.homophone)
     if (homophone) set.add(homophone)
+    // English name many bios open with; skip "X之…" (that's another person — X's relative)
+    const em = (c.bio || '').match(/^([A-Za-z][A-Za-z.\x20]{0,14}?)(?=[一-鿿、，；（(])/)
+    const englishName = em?.[1]?.trim()
+    if (englishName && englishName.length > 1 && c.bio[em[0].length] !== '之') set.add(englishName)
     set.delete(c.name)
     if (set.size) c.aliases = [...set]
   }
