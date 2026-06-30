@@ -2,5 +2,6 @@
 import withNuxt from './.nuxt/eslint.config.mjs'
 
 export default withNuxt(
-  // Your custom configs here
+  // Build-time ETL tooling — plain Node scripts, not part of the app bundle.
+  { ignores: ['scripts/**', 'app/data/**'] }
 )
