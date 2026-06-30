@@ -4,7 +4,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
-  cleanText, parseUbl, parseCellAttrs, splitTableRows, splitRowCells, extractEpisodeRefs
+  cleanText, parseUbl, parseCellAttrs, splitTableRows, splitRowCells, extractEpisodeRefs, trimEdgePunct
 } from './lib/wikitext.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -160,11 +160,7 @@ function actorName(raw) {
   // Notes are often joined with "；" (e.g. "林淑敏；（年輕版由…）"), so drop the
   // separators the note removal leaves dangling at the ends.
   const cleaned = cleanText(parseCellAttrs(raw).content)
-  return cleaned
-    .replace(/（[^（）]*）/g, '')
-    .replace(/\s+/g, '')
-    .replace(/^[；;，,、。·]+|[；;，,、。·]+$/g, '')
-    .trim()
+  return trimEdgePunct(cleaned.replace(/（[^（）]*）/g, '').replace(/\s+/g, ''))
 }
 
 function parseCharacters(wikitext) {
@@ -369,6 +365,24 @@ function buildTags(episodes, plotlines, characters, overlay, ctx) {
 }
 
 // ---------------------------------------------------------------------------
+// Searchable nicknames per character: curated overlay.nicknames + reversed
+// overlay.aliases (nickname → canonical) + the 諧音 homophone pun.
+function attachAliases(characters, overlay) {
+  const nicknames = overlay.nicknames || {}
+  const reverse = new Map()
+  for (const [nick, canon] of Object.entries(overlay.aliases || {})) {
+    if (!reverse.has(canon)) reverse.set(canon, [])
+    reverse.get(canon).push(nick)
+  }
+  for (const c of characters) {
+    const set = new Set([...(nicknames[c.name] || []), ...(reverse.get(c.name) || [])])
+    const homophone = trimEdgePunct(c.homophone)
+    if (homophone) set.add(homophone)
+    set.delete(c.name)
+    if (set.size) c.aliases = [...set]
+  }
+}
+
 async function main() {
   const epWik = await read('wikiversity-episodes.wikitext')
   const chWik = await read('wikiversity-characters.wikitext')
@@ -376,6 +390,7 @@ async function main() {
   const episodes = parseEpisodes(epWik)
   const plotlines = parsePlotlines(epWik)
   const { characters, groups } = parseCharacters(chWik)
+  attachAliases(characters, overlay)
 
   applyEpisodeFixes(episodes, overlay)
   const ctx = crossLink(episodes, plotlines, characters, overlay)

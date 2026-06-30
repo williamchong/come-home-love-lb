@@ -30,6 +30,7 @@ export interface Character {
   bio: string
   episodeRefs: number[] // explicit 第N集 references mined from the bio
   homophone: string | null // 角色名字諧音 (name pun)
+  aliases?: string[] // searchable nicknames (curated + homophone)
   roles?: string[] // for cameo/special: the role names played
   episodeNos?: number[] // resolved episodes this character appears in
 }
