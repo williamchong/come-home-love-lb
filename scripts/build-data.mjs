@@ -156,9 +156,15 @@ function parsePlotlines(wikitext) {
 // 單元角色／特別演出 (unit/special-guest) section. Columns: 演員/角色/簡要介紹.
 // ---------------------------------------------------------------------------
 function actorName(raw) {
-  // strip rowspan attrs, "(年輕版由X飾演)" notes, wiki links -> plain actor name
+  // strip rowspan attrs, "(年輕版由X飾演)" notes, wiki links -> plain actor name.
+  // Notes are often joined with "；" (e.g. "林淑敏；（年輕版由…）"), so drop the
+  // separators the note removal leaves dangling at the ends.
   const cleaned = cleanText(parseCellAttrs(raw).content)
-  return cleaned.replace(/（[^（）]*）/g, '').replace(/\s+/g, '').trim()
+  return cleaned
+    .replace(/（[^（）]*）/g, '')
+    .replace(/\s+/g, '')
+    .replace(/^[；;，,、。·]+|[；;，,、。·]+$/g, '')
+    .trim()
 }
 
 function parseCharacters(wikitext) {
