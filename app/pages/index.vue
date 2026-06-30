@@ -1,7 +1,10 @@
 <script setup lang="ts">
-const { data: ds, status } = useDatasetAsync()
+// Two tiers: `core` (episodes/tags/meta) paints the list fast; `full` (adds
+// characters/plot lines/groups) loads in the background for presets + filters.
+const { data: core } = useCoreDatasetAsync()
+const { data: full } = useDatasetAsync()
 
-const { state, filtered, activeCount, reset } = useEpisodeFilter(ds)
+const { state, filtered, activeCount, reset } = useEpisodeFilter(core)
 
 // pagination
 const PAGE = 48
@@ -14,12 +17,15 @@ const paged = computed(() => filtered.value.slice((page.value - 1) * PAGE, page.
 // mobile filter drawer
 const drawerOpen = ref(false)
 
-// shared across the desktop sidebar + mobile drawer instances of FilterPanel
-const panelProps = computed(() => ({ ds: ds.value!, activeCount: activeCount.value, resultCount: filtered.value.length }))
+// shared across the desktop sidebar + mobile drawer instances of FilterPanel;
+// null until the full tier loads, so render sites guard on `v-if="panelProps"`
+const panelProps = computed(() => full.value
+  ? { ds: full.value, activeCount: activeCount.value, resultCount: filtered.value.length }
+  : null)
 
-// quick presets (set a filter in one click) — resolved against the loaded data
+// quick presets (set a filter in one click) — need the full tier's facets
 const presets = computed(() => {
-  if (!ds.value) return []
+  if (!full.value) return []
   const find = (label: string, list: { value: string, label: string }[]) => list.find(o => o.label.includes(label))
   const out: { text: string, apply: () => void }[] = []
   const apply = (key: 'plotlines' | 'tags' | 'characters', value: string) => () => {
@@ -29,14 +35,13 @@ const presets = computed(() => {
   const add = (text: string, opt: { value: string } | undefined, key: 'plotlines' | 'tags' | 'characters') => {
     if (opt) out.push({ text, apply: apply(key, opt.value) })
   }
-  add('💍 龔水戀', find('龔水戀', ds.value.facets.plotlines), 'plotlines')
-  add('☕ 仁菲戀', find('仁菲戀', ds.value.facets.plotlines), 'plotlines')
-  add('🎭 歐陽bobby', find('歐陽bobby', ds.value.facets.tagsByKind.cameo), 'tags')
-  add('💒 龔水結婚', find('龔水結婚', ds.value.facets.tagsByKind.milestone), 'tags')
-  add('🎄 聖誕節', find('聖誕', ds.value.facets.tagsByKind.festival), 'tags')
-  add('🏫 香港島大學', find('香港島大學', ds.value.facets.tagsByKind.location), 'tags')
-  const cui = ds.value.facets.characters.find(c => c.label === '崔李悟璋')
-  if (cui) out.push({ text: '👵 崔auntie', apply: apply('characters', cui.value) })
+  add('💍 龔水戀', find('龔水戀', full.value.facets.plotlines), 'plotlines')
+  add('☕ 仁菲戀', find('仁菲戀', full.value.facets.plotlines), 'plotlines')
+  add('🎭 歐陽bobby', find('歐陽bobby', full.value.facets.tagsByKind.cameo), 'tags')
+  add('💒 龔水結婚', find('龔水結婚', full.value.facets.tagsByKind.milestone), 'tags')
+  add('🎄 聖誕節', find('聖誕', full.value.facets.tagsByKind.festival), 'tags')
+  add('🏫 香港島大學', find('香港島大學', full.value.facets.tagsByKind.location), 'tags')
+  add('👵 崔auntie', find('崔李悟璋', full.value.facets.characters), 'characters')
   return out
 })
 
@@ -53,20 +58,15 @@ useSeoMeta({
         愛·回家之開心速遞 · 劇集導航
       </h1>
       <p class="text-muted mt-1 text-sm hidden sm:block">
-        篩選 {{ ds?.meta.total?.toLocaleString() ?? '2800+' }} 集，依角色、故事線、CP、節日、客串、里程碑與地點找回想重溫的劇情。
+        篩選 {{ core?.meta.total?.toLocaleString() ?? '2800+' }} 集，依角色、故事線、CP、節日、客串、里程碑與地點找回想重溫的劇情。
       </p>
     </div>
 
-    <div
-      v-if="status === 'pending' || !ds"
-      class="flex items-center gap-2 text-muted py-20 justify-center"
-    >
-      <UIcon
-        name="i-lucide-loader-circle"
-        class="animate-spin size-5"
-      />
-      載入劇集資料中…
-    </div>
+    <LoadingState
+      v-if="!core"
+      text="載入劇集資料中…"
+      class="py-20 justify-center"
+    />
 
     <template v-else>
       <!-- mobile: sticky filter bar (desktop uses the sidebar instead) -->
@@ -94,14 +94,20 @@ useSeoMeta({
       <div class="grid lg:grid-cols-[300px_1fr] gap-6 items-start">
         <aside class="hidden lg:block lg:sticky lg:top-(--ui-header-height)">
           <FilterPanel
+            v-if="panelProps"
             v-bind="panelProps"
             @reset="reset"
+          />
+          <LoadingState
+            v-else
+            text="載入篩選器…"
+            class="py-4"
           />
         </aside>
 
         <div>
           <div
-            v-if="!activeCount"
+            v-if="!activeCount && presets.length"
             class="mb-4 flex gap-2 overflow-x-auto pb-1 lg:flex-wrap lg:overflow-visible"
           >
             <UButton
@@ -132,7 +138,7 @@ useSeoMeta({
               v-for="ep in paged"
               :key="ep.no"
               :episode="ep"
-              :ds="ds"
+              :ds="core"
             />
           </div>
 
@@ -158,9 +164,15 @@ useSeoMeta({
         <template #body>
           <div class="max-h-[70vh] overflow-y-auto px-1">
             <FilterPanel
+              v-if="panelProps"
               v-bind="panelProps"
               :show-count="false"
               @reset="reset"
+            />
+            <LoadingState
+              v-else
+              text="載入篩選器…"
+              class="py-8 justify-center"
             />
           </div>
         </template>

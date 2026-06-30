@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import type { Dataset } from '~/composables/useDataset'
+import type { CoreDataset } from '~/composables/useDataset'
 import type { Episode } from '~/types'
 import { TAG_COLOR } from '~/types'
 
-const props = defineProps<{ episode: Episode, ds: Dataset }>()
+const props = defineProps<{ episode: Episode, ds: CoreDataset }>()
 
 const tags = computed(() => props.episode.tagIds.map(id => props.ds.tagsById.get(id)).filter(isPresent))
 const cast = computed(() => {
