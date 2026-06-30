@@ -12,6 +12,21 @@
     "歐陽bobby": "波比"
   },
 
+  "_nicknames_comment": "Commonly-used character nicknames for searching the 角色 filter. Keyed by canonical character name. Extend freely.",
+  "nicknames": {
+    "高栢菲": ["David", "宇宙大胃王", "大胃王"],
+    "熊尚善": ["大妹"],
+    "熊若水": ["Mary", "二妹"],
+    "熊心如": ["三妹"],
+    "龔燁": ["阿龔"],
+    "熊樹仁": ["阿叔"],
+    "金城安": ["廢青安"],
+    "唐依": ["Candy", "Miss Candy"],
+    "龍力蓮": ["大小姐"],
+    "秦博思": ["博士"],
+    "陳妹珠": ["陳師奶"]
+  },
+
   "cameos": [
     {
       "label": "歐陽bobby",

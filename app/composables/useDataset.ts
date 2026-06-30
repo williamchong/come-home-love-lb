@@ -6,6 +6,7 @@ export interface FacetOption {
   label: string
   count: number
   meta?: string
+  aliases?: string[] // extra searchable terms (character nicknames)
 }
 
 /** First tier: everything the episode list + filtering + tag facets need (~106 KB gz). */
@@ -101,7 +102,7 @@ async function buildFull(): Promise<Dataset> {
   const characterFacets: FacetOption[] = [...countField(core.episodes, 'characterIds').entries()]
     .map(([id, n]) => {
       const ch = charactersById.get(id)
-      return { value: id, label: ch?.name || id, count: n, meta: ch?.actor || undefined }
+      return { value: id, label: ch?.name || id, count: n, meta: ch?.actor || undefined, aliases: ch?.aliases }
     })
     .sort((a, b) => b.count - a.count)
 

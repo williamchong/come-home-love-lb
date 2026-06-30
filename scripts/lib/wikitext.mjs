@@ -97,3 +97,9 @@ export function extractEpisodeRefs(text) {
   }
   return [...nums].sort((a, b) => a - b)
 }
+
+// Drop CJK/ASCII list punctuation (and whitespace) left dangling at either end
+// after note/cleanup removal, e.g. "林淑敏；" -> "林淑敏", "David、" -> "David".
+export function trimEdgePunct(s) {
+  return (s || '').replace(/^[；;，,、。·\s]+|[；;，,、。·\s]+$/g, '')
+}

@@ -36,6 +36,7 @@ const selected = computed({
       :icon="icon"
       :placeholder="placeholder || `選擇${label}`"
       :search-input="{ placeholder: '搜尋…' }"
+      :filter-fields="['label', 'meta', 'aliases']"
       class="w-full"
       :ui="{ content: 'min-w-72' }"
     >
