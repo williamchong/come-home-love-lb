@@ -6,7 +6,7 @@ export interface FacetOption {
   label: string
   count: number
   meta?: string
-  aliases?: string[] // extra searchable terms (character nicknames)
+  aliases?: string[] // extra searchable terms (names + nicknames)
 }
 
 /** First tier: everything the episode list + filtering + tag facets need (~106 KB gz). */
@@ -107,7 +107,17 @@ async function buildFull(): Promise<Dataset> {
     .sort((a, b) => b.count - a.count)
 
   const plotlineFacets: FacetOption[] = plotlines
-    .map(pl => ({ value: pl.id, label: pl.name, count: plotCounts.get(pl.id) || pl.episodes.length, meta: CATEGORY_LABEL[pl.category] }))
+    .map(pl => ({
+      value: pl.id,
+      label: pl.name,
+      count: plotCounts.get(pl.id) || pl.episodes.length,
+      meta: CATEGORY_LABEL[pl.category],
+      // CP names rarely contain member names, so also index members' names +
+      // nicknames. charactersById is id-keyed, but id === name for a name's
+      // first (facet-relevant) occurrence, so the bare-name lookup is intended;
+      // group/minor tokens just contribute their literal name.
+      aliases: pl.characters.flatMap(charName => [charName, ...(charactersById.get(charName)?.aliases ?? [])])
+    }))
     .sort((a, b) => b.count - a.count)
 
   const groupFacets: FacetOption[] = [...groupCounts.entries()]
