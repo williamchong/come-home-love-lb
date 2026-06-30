@@ -1,0 +1,54 @@
+{
+  "_comment": "Hand-curated overlay merged on top of auto-parsed wiki data by scripts/build-data.mjs. Safe to edit by hand.",
+
+  "episodeFixes": [
+    { "date": "2020年3月23日", "title": "我要做主席", "wrongNo": 823, "no": 824, "note": "Wikiversity mislabels this row as a duplicate 823; 根富線 plot line confirms it is ep 824." }
+  ],
+
+  "aliases": {
+    "崔auntie": "崔李悟璋",
+    "崔Auntie": "崔李悟璋",
+    "崔安": "崔李悟璋",
+    "歐陽bobby": "波比"
+  },
+
+  "cameos": [
+    {
+      "label": "歐陽bobby",
+      "title": "波比與群姐的前世今生",
+      "actor": "歐陽震華",
+      "episodes": [606, 607],
+      "summary": "歐陽震華飾演波比、許思敏飾演群姐的特別單元，講述二人三段前世今生的虐戀（金裝四大才子、梁祝、色戒），每世群姐都意外害死波比。第606集創下全劇最高32.3點收視。"
+    }
+  ],
+
+  "milestones": [
+    {
+      "label": "龔水結婚",
+      "plotline": "龔水戀",
+      "episodes": [1458, 1459, 1460, 1461],
+      "summary": "龔燁與熊若水的婚禮：燁水婚前派對（1458）及完美/不完美的婚禮（上中下，1459-1461）。"
+    },
+    {
+      "label": "求婚的秘密",
+      "plotline": "龔水戀",
+      "episodes": [891],
+      "summary": "龔燁向熊若水求婚的伏線。"
+    }
+  ],
+
+  "locations": [
+    { "name": "香港島大學", "aliases": ["島大", "HKIU"] },
+    { "name": "橙不忍島", "aliases": [] },
+    { "name": "古里梧島", "aliases": [] },
+    { "name": "昆里梧島", "aliases": [] },
+    { "name": "始地巫銀群島", "aliases": [] },
+    { "name": "地鎮群島", "aliases": [] },
+    { "name": "寶里梧島", "aliases": [] },
+    { "name": "穹困老島", "aliases": [] },
+    { "name": "火山群島", "aliases": [] },
+    { "name": "約梧島", "aliases": [] }
+  ],
+
+  "featured": ["龔水戀", "仁菲戀", "歐陽bobby", "崔李悟璋", "全家福"]
+}
