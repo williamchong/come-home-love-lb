@@ -2,7 +2,10 @@
 import type { Dataset } from '~/composables/useDataset'
 import type { TagKind } from '~/types'
 
-const props = defineProps<{ ds: Dataset, activeCount: number, resultCount: number }>()
+const props = withDefaults(
+  defineProps<{ ds: Dataset, activeCount: number, resultCount: number, showCount?: boolean }>(),
+  { showCount: true }
+)
 const emit = defineEmits<{ reset: [] }>()
 
 const state = useFilterState()
@@ -45,7 +48,10 @@ const sortItems = [
 <template>
   <div class="space-y-3">
     <div class="flex items-center justify-between">
-      <div class="text-sm">
+      <div
+        v-if="showCount"
+        class="text-sm"
+      >
         <span class="font-semibold text-highlighted">{{ resultCount.toLocaleString() }}</span>
         <span class="text-muted"> 集</span>
       </div>
@@ -55,6 +61,7 @@ const sortItems = [
         color="neutral"
         variant="ghost"
         icon="i-lucide-x"
+        class="ml-auto"
         @click="emit('reset')"
       >
         清除 {{ activeCount }}
