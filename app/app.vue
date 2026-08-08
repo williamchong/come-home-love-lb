@@ -12,7 +12,7 @@ useHead({
 })
 
 const title = '愛·回家之開心速遞 劇集導航'
-const description = '篩選 2800+ 集《愛·回家之開心速遞》，依角色、故事線、CP、節日、客串、里程碑、地點快速找到想重溫的劇集。'
+const description = '篩選 2800+ 集《愛·回家之開心速遞》，依角色、故事線、CP、節日、客串與里程碑快速找到想重溫的劇集。'
 
 useSeoMeta({
   title,

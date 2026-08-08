@@ -3,7 +3,7 @@
 
 export type PlotlineCategory = 'family' | 'friendship' | 'work' | 'romance' | 'festival'
 export type CharacterType = 'regular' | 'special'
-export type TagKind = 'festival' | 'cameo' | 'milestone' | 'special' | 'location'
+export type TagKind = 'festival' | 'cameo' | 'milestone' | 'special'
 
 export interface Episode {
   no: number
@@ -67,7 +67,6 @@ export interface Tag {
   parentPlotlineId?: string | null
   guestActor?: string | null
   summary?: string
-  characterIds?: string[] // for location tags: characters originating there
 }
 
 export interface Meta {
@@ -103,6 +102,5 @@ export const TAG_COLOR = {
   festival: 'warning',
   cameo: 'info',
   milestone: 'error',
-  location: 'success',
   special: 'neutral'
 } as const satisfies Record<TagKind, string>

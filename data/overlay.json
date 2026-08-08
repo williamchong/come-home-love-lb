@@ -52,18 +52,5 @@
     }
   ],
 
-  "locations": [
-    { "name": "香港島大學", "aliases": ["島大", "HKIU"] },
-    { "name": "橙不忍島", "aliases": [] },
-    { "name": "古里梧島", "aliases": [] },
-    { "name": "昆里梧島", "aliases": [] },
-    { "name": "始地巫銀群島", "aliases": [] },
-    { "name": "地鎮群島", "aliases": [] },
-    { "name": "寶里梧島", "aliases": [] },
-    { "name": "穹困老島", "aliases": [] },
-    { "name": "火山群島", "aliases": [] },
-    { "name": "約梧島", "aliases": [] }
-  ],
-
   "featured": ["龔水戀", "仁菲戀", "歐陽bobby", "崔李悟璋", "全家福"]
 }

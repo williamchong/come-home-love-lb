@@ -54,14 +54,15 @@ const presets = computed(() => {
   add('🎭 歐陽bobby', find('歐陽bobby', full.value.facets.tagsByKind.cameo), 'tags')
   add('💒 龔水結婚', find('龔水結婚', full.value.facets.tagsByKind.milestone), 'tags')
   add('🎄 聖誕節', find('聖誕', full.value.facets.tagsByKind.festival), 'tags')
-  add('🏫 香港島大學', find('香港島大學', full.value.facets.tagsByKind.location), 'tags')
+  // 島大線 comes from the wiki's curated 友情系列 plot line, not a place-name scan
+  add('🏫 島大線', find('香港島大學', full.value.facets.plotlines), 'plotlines')
   add('👵 崔auntie', find('崔李悟璋', full.value.facets.characters), 'characters')
   return out
 })
 
 useSeoMeta({
   title: '愛·回家之開心速遞 劇集導航',
-  description: '篩選 2800+ 集《愛·回家之開心速遞》，依角色、故事線、CP、節日、客串、里程碑、地點快速找到想重溫的劇集。'
+  description: '篩選 2800+ 集《愛·回家之開心速遞》，依角色、故事線、CP、節日、客串與里程碑快速找到想重溫的劇集。'
 })
 </script>
 
@@ -72,7 +73,7 @@ useSeoMeta({
         愛·回家之開心速遞 · 劇集導航
       </h1>
       <p class="text-muted mt-1 text-sm hidden sm:block">
-        篩選 {{ core?.meta.total?.toLocaleString() ?? '2800+' }} 集，依角色、故事線、CP、節日、客串、里程碑與地點找回想重溫的劇情。
+        篩選 {{ core?.meta.total?.toLocaleString() ?? '2800+' }} 集，依角色、故事線、CP、節日、客串與里程碑找回想重溫的劇情。
       </p>
 
       <form

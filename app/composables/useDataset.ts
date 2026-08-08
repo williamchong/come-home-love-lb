@@ -73,7 +73,7 @@ async function buildCore(): Promise<CoreDataset> {
     .map(([y, n]) => ({ value: y, label: `${y}`, count: n }))
     .sort((a, b) => Number(a.value) - Number(b.value))
 
-  const tagsByKind = { festival: [], cameo: [], milestone: [], special: [], location: [] } as Record<TagKind, FacetOption[]>
+  const tagsByKind = { festival: [], cameo: [], milestone: [], special: [] } as Record<TagKind, FacetOption[]>
   for (const tag of tags) {
     tagsByKind[tag.kind].push({ value: tag.id, label: tag.label, count: tag.episodeNos.length, meta: tag.guestActor || undefined })
   }

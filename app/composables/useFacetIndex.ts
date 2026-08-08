@@ -48,7 +48,6 @@ const SECTIONS: Section[] = [
   { key: 'tags', label: '節日', icon: 'i-lucide-party-popper', options: ds => ds.facets.tagsByKind.festival },
   { key: 'tags', label: '客串', icon: 'i-lucide-star', options: ds => ds.facets.tagsByKind.cameo },
   { key: 'tags', label: '里程碑', icon: 'i-lucide-flag', options: ds => ds.facets.tagsByKind.milestone },
-  { key: 'tags', label: '地點', icon: 'i-lucide-map-pin', options: ds => ds.facets.tagsByKind.location },
   { key: 'groups', label: '家庭 / 機構', icon: 'i-lucide-users', options: ds => ds.facets.groups },
   { key: 'writers', label: '編劇', icon: 'i-lucide-pen-line', options: ds => ds.facets.writers }
 ]

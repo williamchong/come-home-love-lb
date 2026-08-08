@@ -314,7 +314,7 @@ function crossLink(episodes, plotlines, characters, overlay) {
   return { byNo, nameToId, epsByChar, unresolved }
 }
 
-function buildTags(episodes, plotlines, characters, overlay, ctx) {
+function buildTags(episodes, plotlines, overlay, ctx) {
   const tags = []
   const plByName = new Map(plotlines.map(p => [p.name, p]))
 
@@ -344,14 +344,12 @@ function buildTags(episodes, plotlines, characters, overlay, ctx) {
     tags.push({ id: `milestone-${m.label}`, kind: 'milestone', label: m.label, parentPlotlineId: pl ? pl.id : null, summary: m.summary || '', episodeNos: [...m.episodes].sort((a, b) => a - b) })
   }
 
-  // locations: find characters originating there (bio match), episodes via those characters
-  for (const loc of overlay.locations || []) {
-    const needles = [loc.name, ...(loc.aliases || [])]
-    const chars = characters.filter(c => needles.some(n => (c.bio || '').includes(n)))
-    const nos = new Set()
-    for (const c of chars) for (const n of c.episodeNos || []) nos.add(n)
-    tags.push({ id: `location-${loc.name}`, kind: 'location', label: loc.name, characterIds: chars.map(c => c.id), episodeNos: [...nos].sort((a, b) => a - b) })
-  }
+  // NB: there is deliberately no 地點 tag kind. It used to union the episodes of
+  // every character whose bio named a place, which tags "a character from here
+  // appeared" rather than "this episode is set here" — 香港島大學 came out at 469
+  // episodes, a 3.5x superset of the wiki's own curated 香港島大學 plot line, and
+  // 火山群島 was just one actor's filmography. No stricter source exists: the place
+  // names appear in 38 (島大) and 0 (火山群島) official synopses. Use the plot lines.
 
   // assign tagIds back to episodes
   const byNo = ctx.byNo
@@ -448,7 +446,7 @@ async function main() {
   }
   const ctx = crossLink(episodes, plotlines, characters, overlay)
   attachMentions(episodes, characters, mentions)
-  const tags = buildTags(episodes, plotlines, characters, overlay, ctx)
+  const tags = buildTags(episodes, plotlines, overlay, ctx)
 
   const meta = {
     total: episodes.length,
@@ -504,7 +502,6 @@ async function main() {
   console.log(' ', JSON.stringify(byKind), `total=${tags.length}`)
   for (const t of tags.filter(t => t.kind === 'festival')) console.log(`  festival ${t.label}: ${t.episodeNos.length} eps`)
   for (const t of tags.filter(t => t.kind === 'cameo' || t.kind === 'milestone')) console.log(`  ${t.kind} ${t.label}: eps=${t.episodeNos.join(',')}${t.parentPlotlineId ? ' parent=' + t.parentPlotlineId : ''}`)
-  for (const t of tags.filter(t => t.kind === 'location')) console.log(`  location ${t.label}: chars=${(t.characterIds || []).length} eps=${t.episodeNos.length}`)
   console.log('— Fix check —')
   const e824 = episodes.find(e => e.no === 824)
   console.log(`  ep824 = ${e824 ? e824.title + ' (' + e824.date + ')' : 'MISSING'}`)
