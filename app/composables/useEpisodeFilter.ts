@@ -39,6 +39,16 @@ function emptyState(): FilterState {
   return { q: '', ...emptyFacets(), yearFrom: null, yearTo: null, sort: 'no-asc', includeMentions: false }
 }
 
+/**
+ * The query string the visitor arrived with, captured at module-evaluation
+ * time. While hydrating a prerendered page Nuxt parks the router — and, via
+ * history.replaceState, the address bar itself — on the payload's path (no
+ * query) until suspense resolves, so both route.query and window.location are
+ * blind to a shared filter link during setup. This module is evaluated while
+ * the initial navigation is still resolving, before that dance begins.
+ */
+const initialSearch = import.meta.client ? window.location.search : ''
+
 const csv = (v: string[]) => (v.length ? v.join(',') : undefined)
 const fromCsv = (v: unknown) => (typeof v === 'string' && v.length ? v.split(',') : [])
 const num = (v: unknown) => (typeof v === 'string' && v.length ? Number(v) : null)
@@ -58,14 +68,17 @@ export function activeFilterCount(s: FilterState) {
  * type. State is mirrored to the URL query so filtered views are shareable.
  */
 export function useEpisodeFilter(ds: Ref<CoreDataset | null | undefined>) {
-  const route = useRoute()
   const router = useRouter()
   const state = useFilterState()
 
-  // hydrate from URL once (guarded so re-mounts don't clobber edits)
+  // hydrate from the arrival URL once (guarded so re-mounts don't clobber
+  // edits) — client only, because the prerender pass has no query string and
+  // its useState values are baked into the payload: letting it set the flag
+  // would ship hydrated=true to every visitor and the real query would never
+  // be read
   const hydrated = useState('episode-filter-hydrated', () => false)
-  if (!hydrated.value) {
-    const q = route.query
+  if (import.meta.client && !hydrated.value) {
+    const q: Record<string, string> = Object.fromEntries(new URLSearchParams(initialSearch))
     Object.assign(state.value, {
       q: typeof q.q === 'string' ? q.q : '',
       characters: fromCsv(q.chars),
