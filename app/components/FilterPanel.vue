@@ -78,7 +78,7 @@ const years = computed(() => props.ds.facets.years.map(y => Number(y.value)))
       value-key="token"
       icon="i-lucide-list-filter"
       :filter-fields="FACET_FILTER_FIELDS"
-      :search-input="{ placeholder: '角色、故事線、節日、地點…' }"
+      :search-input="{ placeholder: '角色、故事線、節日、里程碑…' }"
       class="w-full"
       :ui="{ content: 'min-w-72 max-w-[calc(100vw-2rem)]' }"
     >
