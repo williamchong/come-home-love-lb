@@ -13,10 +13,12 @@ export interface FilterState {
   yearFrom: number | null
   yearTo: number | null
   sort: SortKey
+  /** Widen the 角色 filter from 故事主人翁 to any episode whose synopsis names them. */
+  includeMentions: boolean
 }
 
 function emptyState(): FilterState {
-  return { q: '', characters: [], plotlines: [], groups: [], tags: [], writers: [], yearFrom: null, yearTo: null, sort: 'no-asc' }
+  return { q: '', characters: [], plotlines: [], groups: [], tags: [], writers: [], yearFrom: null, yearTo: null, sort: 'no-asc', includeMentions: false }
 }
 
 const csv = (v: string[]) => (v.length ? v.join(',') : undefined)
@@ -55,7 +57,8 @@ export function useEpisodeFilter(ds: Ref<CoreDataset | null | undefined>) {
       writers: fromCsv(q.writers),
       yearFrom: num(q.from),
       yearTo: num(q.to),
-      sort: typeof q.sort === 'string' ? (q.sort as SortKey) : 'no-asc'
+      sort: typeof q.sort === 'string' ? (q.sort as SortKey) : 'no-asc',
+      includeMentions: q.mentions === '1'
     })
     hydrated.value = true
   }
@@ -73,7 +76,8 @@ export function useEpisodeFilter(ds: Ref<CoreDataset | null | undefined>) {
         writers: csv(s.writers),
         from: s.yearFrom ?? undefined,
         to: s.yearTo ?? undefined,
-        sort: s.sort === 'no-asc' ? undefined : s.sort
+        sort: s.sort === 'no-asc' ? undefined : s.sort,
+        mentions: s.includeMentions ? '1' : undefined
       }
     })
   }, { deep: true })
@@ -89,7 +93,8 @@ export function useEpisodeFilter(ds: Ref<CoreDataset | null | undefined>) {
     const q = s.q.trim().toLowerCase()
     const out = data.episodes.filter((ep) => {
       if (q && !ep.title.toLowerCase().includes(q) && !ep.protagonists.some(p => p.toLowerCase().includes(q))) return false
-      if (s.characters.length && !someIn(s.characters, ep.characterIds)) return false
+      if (s.characters.length && !someIn(s.characters, ep.characterIds)
+        && !(s.includeMentions && someIn(s.characters, ep.mentionedCharacterIds))) return false
       if (s.plotlines.length && !someIn(s.plotlines, ep.plotlineIds)) return false
       if (s.groups.length && !someIn(s.groups, ep.groupIds)) return false
       if (s.tags.length && !someIn(s.tags, ep.tagIds)) return false

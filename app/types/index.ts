@@ -14,6 +14,7 @@ export interface Episode {
   protagonists: string[] // raw 故事主人翁 tokens (characters and groups)
   focus: string[] // spotlighted characters from （但以…為主線）
   characterIds: string[] // resolved characters appearing in this episode
+  mentionedCharacterIds: string[] // looser: characters the official synopsis names
   groupIds: string[] // resolved family/organisation groups
   plotlineIds: string[]
   tagIds: string[]
@@ -34,6 +35,7 @@ export interface Character {
   aliases?: string[] // searchable nicknames (curated + homophone)
   roles?: string[] // for cameo/special: the role names played
   episodeNos?: number[] // resolved episodes this character appears in
+  mentionedEpisodeNos?: number[] // looser: episodes whose official synopsis names them
 }
 
 export interface Group {
