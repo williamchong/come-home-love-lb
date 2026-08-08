@@ -24,6 +24,9 @@ const jumpTarget = computed(() => {
   const n = Number(jumpNo.value)
   return Number.isInteger(n) && core.value?.episodesByNo.has(n) ? n : null
 })
+// The form renders above the loading guard, so `core` is still null on first
+// paint — only call a number missing once there is a dataset to miss from.
+const jumpUnknown = computed(() => Boolean(core.value && jumpNo.value && !jumpTarget.value))
 function jump() {
   if (jumpTarget.value) navigateTo(`/episode/${jumpTarget.value}`)
 }
@@ -96,7 +99,7 @@ useSeoMeta({
           前往
         </UButton>
         <span
-          v-if="jumpNo && !jumpTarget"
+          v-if="jumpUnknown"
           class="text-xs text-error"
         >沒有第 {{ jumpNo }} 集</span>
       </form>
