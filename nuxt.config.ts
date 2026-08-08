@@ -2,8 +2,27 @@
 export default defineNuxtConfig({
   modules: [
     '@nuxt/eslint',
+    '@nuxt/scripts',
     '@nuxt/ui'
   ],
+
+  // Google Analytics via the Nuxt Scripts registry — production builds only,
+  // so dev-server sessions don't pollute the property.
+  // `trigger` is required: without it a registry entry only registers config
+  // defaults for the composable and the script is never loaded globally.
+  // `proxy` must stay off — it rewrites the collection domains to a Nitro
+  // route, and GitHub Pages is static, so the beacons would just 404.
+  $production: {
+    scripts: {
+      registry: {
+        googleAnalytics: {
+          id: 'G-51ZC433EZX',
+          trigger: 'onNuxtReady',
+          proxy: false
+        }
+      }
+    }
+  },
 
   devtools: {
     enabled: true
