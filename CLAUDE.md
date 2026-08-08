@@ -42,8 +42,9 @@ Two independent halves. Know which one you're editing.
 **2. Nuxt app (`app/`)** — reads the committed JSON, filters client-side. No runtime network calls.
 - `composables/useDataset.ts` — **tiered loading**. `CoreDataset` (episodes + tags + meta + their facets) loads first so the list renders quickly; `Dataset` extends it with characters/plotlines/groups + their facets for the facet panel, presets, and detail pages. Both are cached in module-level promises (`loadCore`/`loadDataset`), consumed via `useCoreDatasetAsync`/`useDatasetAsync` (`composables/useDatasetAsync.ts`, `{ lazy: true, server: false }`).
 - `composables/useEpisodeFilter.ts` — the filter engine. **Facets combine with AND across types, OR within a type.** Filter state is app-wide shared `useState` and is **mirrored to the URL query** (so filtered views are shareable); it hydrates from the query once on load. Free-text `q` matches episode title + protagonist tokens.
+- `composables/useFacetIndex.ts` — flattens **every** facet type (角色 / 故事線 / 節日 / 客串 / 里程碑 / 家庭・機構 / 編劇) into one grouped, searchable `USelectMenu` item list, so the panel has a single 新增篩選 combobox instead of a dropdown per type. Each option is modelled as a `key:value` token; `useFacetTokens` is a writable computed that projects the five separate `FilterState` arrays into one flat token list and back, which is why `useEpisodeFilter` and the URL query format are untouched by the merged UI.
 - `types/index.ts` — the single source of truth for the data-model shapes the JSON conforms to (`Episode`, `Character`, `Plotline`, `Tag`, `Group`, `Meta`) plus display constants (`CATEGORY_LABEL`, `TAG_COLOR`).
-- `pages/` — `index.vue` (list + filter panel) and dynamic detail routes `episode/[no]`, `character/[id]`, `plotline/[id]`.
+- `pages/` — `index.vue` (list + filter panel) and dynamic detail routes `episode/[no]`, `character/[id]`, `plotline/[id]`. `FilterPanel` is mounted twice — a desktop sidebar and a mobile `UDrawer` — both bound to the same shared state; sorting lives in `SortSelect` next to the results rather than in the panel.
 
 ### The curated overlay (`data/overlay.json`)
 
