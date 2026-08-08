@@ -15,6 +15,9 @@ All paths are relative to the repo root.
 
 - macOS with Google Chrome at `/Applications/Google Chrome.app` (override
   with `CHROME_BIN=<path>` for another Chromium).
+- Viewport defaults to 1280×900; set `WINDOW_SIZE=390,844` (or any `w,h`) to
+  drive the mobile layout — the sticky filter bar, the `UDrawer` bottom sheet
+  and the `lg:` breakpoint only appear at the size you launch with.
 - Node ≥ 22 (driver needs the built-in `WebSocket` global). `node` resolves
   via `~/.local/bin` shims, but **`pnpm` and `corepack` do not** — the pnpm
   shim points at a node version that doesn't have pnpm installed. Put the
@@ -145,6 +148,12 @@ Both must pass before committing (CI runs lint + typecheck + build).
 - **`pnpm` on PATH is a broken shim** (`no such file or directory:
   …/v24.15.0/bin/pnpm`). Always go through `corepack pnpm` with the PATH
   line from Prerequisites; plain `corepack` isn't on PATH either without it.
+- **`FilterPanel` is mounted twice** — desktop sidebar *and* mobile drawer —
+  so a bare `document.querySelectorAll('button')` hits the hidden instance
+  first and returns a 0×0 rect. On mobile, scope every filter-panel query to
+  the drawer: `document.querySelector('[role=dialog]').querySelectorAll(…)`.
+  Clicking the hidden copy opens a popover anchored at (0,0), which reads as
+  a positioning bug that isn't there.
 
 ## Troubleshooting
 
