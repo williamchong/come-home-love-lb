@@ -39,7 +39,7 @@ const PROFILE = join(HERE, '.chrome-profile')
 // ---- launch chrome with an ephemeral debugging port ----
 rmSync(PROFILE, { recursive: true, force: true })
 const chrome = spawn(CHROME, [
-  '--headless=new', '--disable-gpu', '--no-first-run', '--window-size=1280,900',
+  '--headless=new', '--disable-gpu', '--no-first-run', `--window-size=${process.env.WINDOW_SIZE || '1280,900'}`,
   '--remote-debugging-port=0', `--user-data-dir=${PROFILE}`, 'about:blank'
 ], { stdio: ['ignore', 'ignore', 'pipe'] })
 let chromeErr = ''
