@@ -362,10 +362,52 @@ function buildTags(episodes, plotlines, characters, overlay, ctx) {
 }
 
 // ---------------------------------------------------------------------------
+// Episodes whose official synopsis names a character, derived offline into
+// data/mentions.json. Kept apart from characterIds because that column means
+// "story protagonist" — a mention is a looser signal the app widens to on demand.
+// Ids not in the roster are ignored so a stale mentions file can't invent characters.
+function attachMentions(episodes, characters, mentions) {
+  const byNo = new Map(episodes.map(e => [e.no, e]))
+  const known = new Set(characters.map(c => c.id))
+  for (const e of episodes) e.mentionedCharacterIds = []
+  for (const [id, nos] of Object.entries(mentions)) {
+    if (!known.has(id)) continue
+    const hit = nos.filter(no => byNo.has(no))
+    for (const no of hit) byNo.get(no).mentionedCharacterIds.push(id)
+    if (hit.length) characters.find(c => c.id === id).mentionedEpisodeNos = hit
+  }
+}
+
+// Many bios open with an alias list before the first "；" ("瓜姐；…", "高小姐；…",
+// "阿May、無知May（龍力蓮專稱）；…"), while others open with a sentence instead
+// ("出生於1978年…"). Take that segment only when it looks like a list, then keep
+// tokens shaped like nicknames — a 阿X / X姐 / 疊字 / English form. Shape matters
+// because the same segment also carries roles and relatives ("熊樹根之表弟",
+// "腦神經外科醫生"), which are descriptions rather than names people search by.
+const BIO_SENTENCE = /[。，,]|出生|曾|被|擁有/
+const NICKNAME_SHAPE = /^(?:阿.{1,2}|.{1,3}(?:姐|哥|仔|叔|嬸|伯|婆|少|爺|妹|嫂)|[A-Za-z]{2,10}|(.)\1)$/
+function bioNicknames(c) {
+  const head = (c.bio || '').split('；')[0].replace(/（[^（）]*）/g, '').trim()
+  if (!head || head.length > 24 || BIO_SENTENCE.test(head)) return []
+  return head.split('、')
+    .map(t => t.trim())
+    .filter(t => t.length >= 2 && t.length <= 6 && !t.includes('之') && t !== c.name && NICKNAME_SHAPE.test(t))
+}
+
 // Searchable nicknames per character: curated overlay.nicknames + reversed
 // overlay.aliases (nickname → canonical) + the 諧音 homophone pun + the English
-// name many bios open with (e.g. "David出生於…", "KC是…", "Peter；…").
+// name many bios open with (e.g. "David出生於…", "KC是…", "Peter；…") + the bio's
+// own alias segment.
 function attachAliases(characters, overlay) {
+  // A nickname claimed by more than one character identifies none of them
+  // ("清潔阿姐" is shared by seven cleaners), so drop those before assigning.
+  const claims = new Map()
+  for (const c of characters) {
+    for (const n of bioNicknames(c)) {
+      if (!claims.has(n)) claims.set(n, new Set())
+      claims.get(n).add(c.id)
+    }
+  }
   const nicknames = overlay.nicknames || {}
   const reverse = new Map()
   for (const [nick, canon] of Object.entries(overlay.aliases || {})) {
@@ -380,6 +422,7 @@ function attachAliases(characters, overlay) {
     const em = (c.bio || '').match(/^([A-Za-z][A-Za-z.\x20]{0,14}?)(?=[一-鿿、，；（(])/)
     const englishName = em?.[1]?.trim()
     if (englishName && englishName.length > 1 && c.bio[em[0].length] !== '之') set.add(englishName)
+    for (const n of bioNicknames(c)) if (claims.get(n).size === 1) set.add(n)
     set.delete(c.name)
     if (set.size) c.aliases = [...set]
   }
@@ -390,6 +433,7 @@ async function main() {
   const chWik = await read('wikiversity-characters.wikitext')
   const overlay = JSON.parse(await readFile(join(__dirname, '..', 'data', 'overlay.json'), 'utf8'))
   const playIds = JSON.parse(await readFile(join(__dirname, '..', 'data', 'play-ids.json'), 'utf8')).ids || {}
+  const mentions = JSON.parse(await readFile(join(__dirname, '..', 'data', 'mentions.json'), 'utf8')).mentions || {}
   const episodes = parseEpisodes(epWik)
   const plotlines = parsePlotlines(epWik)
   const { characters, groups } = parseCharacters(chWik)
@@ -403,6 +447,7 @@ async function main() {
     if (id) e.playId = id
   }
   const ctx = crossLink(episodes, plotlines, characters, overlay)
+  attachMentions(episodes, characters, mentions)
   const tags = buildTags(episodes, plotlines, characters, overlay, ctx)
 
   const meta = {
@@ -410,7 +455,7 @@ async function main() {
     maxNo: Math.max(...episodes.map(e => e.no)),
     firstDate: episodes[0]?.date || '',
     lastDate: episodes[episodes.length - 1]?.date || '',
-    generatedFrom: ['zh.wikiversity.org 集數列表及故事系列', 'zh.wikiversity.org 角色列表', 'data/overlay.json', 'data/play-ids.json']
+    generatedFrom: ['zh.wikiversity.org 集數列表及故事系列', 'zh.wikiversity.org 角色列表', 'data/overlay.json', 'data/play-ids.json', 'data/mentions.json']
   }
 
   await mkdir(OUT, { recursive: true })

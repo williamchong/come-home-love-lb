@@ -81,6 +81,14 @@ const sortItems = [
       label="角色"
       icon="i-lucide-user"
     />
+    <USwitch
+      v-if="state.characters.length"
+      v-model="state.includeMentions"
+      size="xs"
+      label="包括配角出場"
+      description="除主人翁外，亦包括官方劇情簡介提及該角色的集數"
+      class="-mt-1"
+    />
     <FacetSelect
       v-model="state.plotlines"
       :items="ds.facets.plotlines"
