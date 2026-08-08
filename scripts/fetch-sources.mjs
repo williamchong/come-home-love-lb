@@ -16,6 +16,11 @@ const SOURCES = [
     title: '愛·回家之開心速遞集數列表及故事系列'
   },
   {
+    name: 'wikiversity-characters',
+    host: 'zh.wikiversity.org',
+    title: '愛·回家之開心速遞角色列表'
+  },
+  {
     name: 'wikipedia-series',
     host: 'zh.wikipedia.org',
     title: '愛·回家之開心速遞'
