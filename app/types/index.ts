@@ -18,6 +18,7 @@ export interface Episode {
   plotlineIds: string[]
   tagIds: string[]
   summary?: string // aggregated from plot-line 簡介 where available
+  playId?: number // myTV SUPER episode id, absent where the catalogue skips a number
 }
 
 export interface Character {
@@ -82,6 +83,17 @@ export const CATEGORY_LABEL: Record<PlotlineCategory, string> = {
   work: '拍檔／上司下屬',
   romance: '愛情',
   festival: '節日'
+}
+
+/**
+ * Official myTV SUPER page for an episode. The title segment of the real URL is
+ * cosmetic — any placeholder redirects to the canonical slug — so it is omitted
+ * here to survive the title being re-slugged. Watching may need a subscription.
+ * Undefined when the episode has no `playId`: the catalogue omits a few numbers
+ * the wiki lists.
+ */
+export function mytvsuperUrl(playId: number | undefined): string | undefined {
+  return playId ? `https://www.mytvsuper.com/tc/programme/loandbehold_110561/e/${playId}/` : undefined
 }
 
 /** Nuxt UI badge colour per tag kind. */

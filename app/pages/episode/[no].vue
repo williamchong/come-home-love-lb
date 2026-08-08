@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { CATEGORY_LABEL, TAG_COLOR } from '~/types'
+import { CATEGORY_LABEL, TAG_COLOR, mytvsuperUrl } from '~/types'
 
 const route = useRoute()
 const no = computed(() => Number(route.params.no))
@@ -10,6 +10,7 @@ const ep = computed(() => ds.value?.episodesByNo.get(no.value) || null)
 const characters = computed(() => (ep.value?.characterIds || []).map(id => ds.value?.charactersById.get(id)).filter(isPresent))
 const plotlines = computed(() => (ep.value?.plotlineIds || []).map(id => ds.value?.plotlinesById.get(id)).filter(isPresent))
 const tags = computed(() => (ep.value?.tagIds || []).map(id => ds.value?.tagsById.get(id)).filter(isPresent))
+const watchUrl = computed(() => mytvsuperUrl(ep.value?.playId))
 const prev = computed(() => ds.value?.episodesByNo.get(no.value - 1))
 const next = computed(() => ds.value?.episodesByNo.get(no.value + 1))
 
@@ -52,6 +53,19 @@ watchEffect(() => {
       <p class="text-muted mt-1">
         {{ ep.date }} · 編劇 {{ ep.writers.join('、') || '—' }}
       </p>
+
+      <UButton
+        v-if="watchUrl"
+        :to="watchUrl"
+        target="_blank"
+        trailing-icon="i-lucide-external-link"
+        size="xs"
+        color="neutral"
+        variant="subtle"
+        class="mt-3"
+      >
+        myTV SUPER 收看
+      </UButton>
 
       <div
         v-if="tags.length"
