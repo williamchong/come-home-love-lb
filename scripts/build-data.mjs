@@ -314,7 +314,7 @@ function crossLink(episodes, plotlines, characters, overlay) {
   return { byNo, nameToId, epsByChar, unresolved }
 }
 
-function buildTags(episodes, plotlines, overlay, ctx) {
+function buildTags(episodes, plotlines, characters, overlay, ctx) {
   const tags = []
   const plByName = new Map(plotlines.map(p => [p.name, p]))
 
@@ -334,8 +334,27 @@ function buildTags(episodes, plotlines, overlay, ctx) {
   for (const [label, nos] of festivalMap) tags.push({ id: `festival-${label}`, kind: 'festival', label, episodeNos: [...nos].sort((a, b) => a - b) })
 
   // cameos (curated)
+  const curatedCameoActors = new Set()
   for (const c of overlay.cameos || []) {
+    if (c.actor) curatedCameoActors.add(c.actor)
     tags.push({ id: `cameo-${c.label}`, kind: 'cameo', label: c.label, title: c.title || null, guestActor: c.actor || null, summary: c.summary || '', episodeNos: [...c.episodes].sort((a, b) => a - b) })
+  }
+
+  // cameos (derived): a guest turn is only usable as a tag if we know its
+  // episodes, and the roster gives that for very few — it names ~750 guest
+  // actors but records no episode for almost all of them, and their names show
+  // up in 3 titles and 6 synopses across 2,868 episodes. The ones that do
+  // resolve got there via the 故事主人翁 column, so key off that: a real person
+  // credited as themselves (name === actor), or a roster entry the wiki
+  // explicitly tags （客串）, e.g. 戴盈盈 played by 馮盈盈 in 第937集「島大FYY」.
+  for (const c of characters) {
+    const asSelf = c.actor && c.name === c.actor
+    const marked = (c.bio || '').trim().endsWith('（客串）')
+    const nos = c.episodeNos || []
+    if ((!asSelf && !marked) || !nos.length || curatedCameoActors.has(c.actor)) continue
+    const id = `cameo-${c.name}`
+    if (tags.some(t => t.id === id)) continue
+    tags.push({ id, kind: 'cameo', label: c.name, title: null, guestActor: asSelf ? null : c.actor, summary: '', episodeNos: [...nos].sort((a, b) => a - b) })
   }
 
   // milestones (curated), linked to a parent plot line
@@ -447,7 +466,7 @@ async function main() {
   }
   const ctx = crossLink(episodes, plotlines, characters, overlay)
   attachMentions(episodes, characters, mentions)
-  const tags = buildTags(episodes, plotlines, overlay, ctx)
+  const tags = buildTags(episodes, plotlines, characters, overlay, ctx)
 
   const meta = {
     total: episodes.length,
