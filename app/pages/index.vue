@@ -189,6 +189,7 @@ useSeoMeta({
               :key="ep.no"
               :episode="ep"
               :ds="core"
+              :plotlines-by-id="full?.plotlinesById"
             />
           </div>
 

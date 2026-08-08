@@ -102,6 +102,7 @@ watchEffect(() => {
             :key="ep.no"
             :episode="ep"
             :ds="ds"
+            :plotlines-by-id="ds.plotlinesById"
           />
         </div>
       </section>
