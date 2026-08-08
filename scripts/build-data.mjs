@@ -4,7 +4,8 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
-  cleanText, parseUbl, parseCellAttrs, splitTableRows, splitRowCells, extractEpisodeRefs, trimEdgePunct
+  cleanText, parseUbl, parseCellAttrs, splitTableRows, splitRowCells, parseRowGrid, isHeaderRow,
+  extractEpisodeRefs, trimEdgePunct
 } from './lib/wikitext.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -37,9 +38,8 @@ function parseEpisodes(wikitext) {
     const carry = [null, null, null, null, null]
     let year = null
     for (const row of rows) {
-      const trimmed = row.replace(/^\s+/, '')
-      if (trimmed.startsWith('!') || trimmed.startsWith('{|') || trimmed.startsWith('|+')) {
-        const ym = /(\d{4})年/.exec(trimmed)
+      if (isHeaderRow(row)) {
+        const ym = /(\d{4})年/.exec(row)
         if (ym) year = Number(ym[1])
         continue
       }
@@ -113,8 +113,7 @@ function parsePlotlines(wikitext) {
     const rows = splitTableRows(table)
     let idx = 0
     for (const row of rows) {
-      const trimmed = row.replace(/^\s+/, '')
-      if (trimmed.startsWith('!') || trimmed.startsWith('{|')) continue
+      if (isHeaderRow(row)) continue
       // cells: 主人翁 || {{ubl nums}} || {{ubl titles}} || 簡介
       const cells = splitRowCells(row)
       if (cells.length < 2) continue
@@ -156,10 +155,10 @@ function parsePlotlines(wikitext) {
 // 單元角色／特別演出 (unit/special-guest) section. Columns: 演員/角色/簡要介紹.
 // ---------------------------------------------------------------------------
 function actorName(raw) {
-  // strip rowspan attrs, "(年輕版由X飾演)" notes, wiki links -> plain actor name.
-  // Notes are often joined with "；" (e.g. "林淑敏；（年輕版由…）"), so drop the
-  // separators the note removal leaves dangling at the ends.
-  const cleaned = cleanText(parseCellAttrs(raw).content)
+  // strip "(年輕版由X飾演)" notes and wiki links -> plain actor name. Notes are often
+  // joined with "；" (e.g. "林淑敏；（年輕版由…）"), so drop the separators the note
+  // removal leaves dangling at the ends.
+  const cleaned = cleanText(raw)
   return trimEdgePunct(cleaned.replace(/（[^（）]*）/g, '').replace(/\s+/g, ''))
 }
 
@@ -184,21 +183,19 @@ function parseCharacters(wikitext) {
     }
     const cameos = [] // special section: one entry per explicit-actor block
     let cameo = null
-    let lastActor = ''
-    for (const row of rows) {
-      const trimmed = row.replace(/^\s+/, '')
-      if (trimmed.startsWith('!') || trimmed.startsWith('{|') || trimmed.startsWith('|+')) continue
-      const cells = splitRowCells(row)
-      const actorRaw = cells[0] ?? '' // blank on rowspan-continuation rows
-      const actor = actorRaw ? actorName(actorRaw) : lastActor
-      if (actorRaw) lastActor = actor
-      const name = cleanText(parseCellAttrs(cells[1] ?? '').content)
-      const bio = cleanText(parseCellAttrs(cells[2] ?? '').content)
+    // Columns are 演員/角色/簡要介紹; a rowspan on any of them carries downwards.
+    for (const cells of parseRowGrid(rows.filter(row => !isHeaderRow(row)))) {
+      const actor = actorName(cells[0]?.content ?? '')
+      // true only when this row supplies a non-blank actor of its own, rather than
+      // inheriting one from a rowspan above — that starts a new cameo block below.
+      const ownActor = Boolean(actor) && cells[0]?.carried === false
+      const name = cleanText(cells[1]?.content ?? '')
+      const bio = cleanText(cells[2]?.content ?? '')
       if (!name && !bio) continue
 
       if (isSpecial) {
         // collapse each guest actor's rowspan block into a single cameo entry
-        if (actorRaw || !cameo) { cameo = { actor: actor || null, name: actor || name, roles: [], bios: [], refs: new Set() }; cameos.push(cameo) }
+        if (ownActor || !cameo) { cameo = { actor: actor || null, name: actor || name, roles: [], bios: [], refs: new Set() }; cameos.push(cameo) }
         if (name) cameo.roles.push(name)
         if (bio) cameo.bios.push(bio)
         for (const r of extractEpisodeRefs(bio)) cameo.refs.add(r)
