@@ -132,6 +132,7 @@ useSeoMeta({
         <span class="text-sm text-muted">
           <span class="font-semibold text-highlighted">{{ filtered.length.toLocaleString() }}</span> 集
         </span>
+        <SortSelect class="ml-auto" />
       </div>
 
       <div class="grid lg:grid-cols-[300px_1fr] gap-6 items-start">
@@ -149,6 +150,11 @@ useSeoMeta({
         </aside>
 
         <div>
+          <!-- mobile shows sort in the sticky bar instead -->
+          <div class="hidden lg:flex justify-end -mt-1 mb-1">
+            <SortSelect />
+          </div>
+
           <div
             v-if="!activeCount && presets.length"
             class="mb-4 flex gap-2 overflow-x-auto pb-1 lg:flex-wrap lg:overflow-visible"

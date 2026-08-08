@@ -3,6 +3,24 @@ import type { Episode } from '~/types'
 
 export type SortKey = 'no-asc' | 'no-desc'
 
+/** The sort options offered in the UI, kept beside `SortKey` so they can't drift apart. */
+export const SORT_ITEMS: { label: string, value: SortKey }[] = [
+  { label: '集數 ↑', value: 'no-asc' },
+  { label: '集數 ↓', value: 'no-desc' }
+]
+
+/**
+ * The `FilterState` fields holding facet selections. Every one is an OR-set of
+ * ids filtered the same way, so they are enumerated once here rather than spelled
+ * out at each site that has to walk them all.
+ */
+export const FACET_KEYS = ['characters', 'plotlines', 'tags', 'groups', 'writers'] as const
+export type FacetKey = typeof FACET_KEYS[number]
+
+/** A blank selection per facet key — the shared shape of empty and reset state. */
+export const emptyFacets = () =>
+  Object.fromEntries(FACET_KEYS.map(k => [k, [] as string[]])) as Record<FacetKey, string[]>
+
 export interface FilterState {
   q: string
   characters: string[]
@@ -18,7 +36,7 @@ export interface FilterState {
 }
 
 function emptyState(): FilterState {
-  return { q: '', characters: [], plotlines: [], groups: [], tags: [], writers: [], yearFrom: null, yearTo: null, sort: 'no-asc', includeMentions: false }
+  return { q: '', ...emptyFacets(), yearFrom: null, yearTo: null, sort: 'no-asc', includeMentions: false }
 }
 
 const csv = (v: string[]) => (v.length ? v.join(',') : undefined)
@@ -31,8 +49,8 @@ export function useFilterState() {
 }
 
 export function activeFilterCount(s: FilterState) {
-  return (s.q ? 1 : 0) + s.characters.length + s.plotlines.length + s.groups.length
-    + s.tags.length + s.writers.length + (s.yearFrom ? 1 : 0) + (s.yearTo ? 1 : 0)
+  return (s.q ? 1 : 0) + FACET_KEYS.reduce((n, k) => n + s[k].length, 0)
+    + (s.yearFrom ? 1 : 0) + (s.yearTo ? 1 : 0)
 }
 
 /**

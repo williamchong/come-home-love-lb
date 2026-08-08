@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import type { Dataset } from '~/composables/useDataset'
-import type { TagKind } from '~/types'
 
 const props = withDefaults(
   defineProps<{ ds: Dataset, activeCount: number, resultCount: number, showCount?: boolean }>(),
@@ -10,20 +9,20 @@ const emit = defineEmits<{ reset: [] }>()
 
 const state = useFilterState()
 
-// per-kind tag models that all read/write the single combined `state.tags`
-function tagModel(kind: TagKind) {
-  return computed<string[]>({
-    get: () => state.value.tags.filter(id => props.ds.tagsById.get(id)?.kind === kind),
-    set: (v) => {
-      const others = state.value.tags.filter(id => props.ds.tagsById.get(id)?.kind !== kind)
-      state.value.tags = [...others, ...v]
-    }
-  })
+// bound so the index can list only the top options per section until you type
+const facetSearch = ref('')
+const { groups, byToken } = useFacetIndex(() => props.ds, facetSearch)
+const tokens = useFacetTokens(state)
+
+// active selections, as removable chips. A token from a stale shared link won't
+// be in the index — show its raw value rather than dropping it from the filter.
+const chips = computed(() => tokens.value.map((token) => {
+  const item = byToken.value.get(token)
+  return { token, label: item?.label ?? parseToken(token)?.value ?? token, icon: item?.icon ?? 'i-lucide-tag' }
+}))
+function removeChip(token: string) {
+  tokens.value = tokens.value.filter(t => t !== token)
 }
-const festival = tagModel('festival')
-const location = tagModel('location')
-const cameo = tagModel('cameo')
-const milestone = tagModel('milestone')
 
 // USelectMenu uses undefined for "no selection"; the filter state uses null
 const yearFrom = computed<number | undefined>({
@@ -38,11 +37,7 @@ const yearTo = computed<number | undefined>({
     state.value.yearTo = v ?? null
   }
 })
-
-const sortItems = [
-  { label: '集數 ↑', value: 'no-asc' },
-  { label: '集數 ↓', value: 'no-desc' }
-]
+const years = computed(() => props.ds.facets.years.map(y => Number(y.value)))
 </script>
 
 <template>
@@ -75,89 +70,76 @@ const sortItems = [
       class="w-full"
     />
 
-    <FacetSelect
-      v-model="state.characters"
-      :items="ds.facets.characters"
-      label="角色"
-      icon="i-lucide-user"
-    />
+    <USelectMenu
+      v-model="tokens"
+      v-model:search-term="facetSearch"
+      :items="groups"
+      multiple
+      value-key="token"
+      icon="i-lucide-list-filter"
+      :filter-fields="FACET_FILTER_FIELDS"
+      :search-input="{ placeholder: '角色、故事線、節日、地點…' }"
+      class="w-full"
+      :ui="{ content: 'min-w-72 max-w-[calc(100vw-2rem)]' }"
+    >
+      <!-- the trigger always invites a new pick; what's chosen shows as chips -->
+      <template #default>
+        <span class="text-dimmed">新增篩選…</span>
+      </template>
+      <template #item-label="{ item }">
+        <span class="truncate">{{ item.label }}</span>
+        <span
+          v-if="item.meta"
+          class="text-muted text-xs ml-1"
+        >{{ item.meta }}</span>
+        <span class="text-muted text-xs ml-auto pl-2">{{ item.count }}</span>
+      </template>
+    </USelectMenu>
+
+    <div
+      v-if="chips.length"
+      class="flex flex-wrap gap-1.5"
+    >
+      <UButton
+        v-for="chip in chips"
+        :key="chip.token"
+        size="sm"
+        color="neutral"
+        variant="soft"
+        :icon="chip.icon"
+        trailing-icon="i-lucide-x"
+        :aria-label="`移除篩選：${chip.label}`"
+        :ui="{ trailingIcon: 'text-dimmed' }"
+        @click="removeChip(chip.token)"
+      >
+        {{ chip.label }}
+      </UButton>
+    </div>
+
     <USwitch
       v-if="state.characters.length"
       v-model="state.includeMentions"
       size="xs"
       label="包括配角出場"
       description="除主人翁外，亦包括官方劇情簡介提及該角色的集數"
-      class="-mt-1"
-    />
-    <FacetSelect
-      v-model="state.plotlines"
-      :items="ds.facets.plotlines"
-      label="故事線 / CP"
-      icon="i-lucide-heart"
-    />
-    <FacetSelect
-      v-model="festival"
-      :items="ds.facets.tagsByKind.festival"
-      label="節日"
-      icon="i-lucide-party-popper"
-    />
-    <FacetSelect
-      v-model="cameo"
-      :items="ds.facets.tagsByKind.cameo"
-      label="客串"
-      icon="i-lucide-star"
-    />
-    <FacetSelect
-      v-model="milestone"
-      :items="ds.facets.tagsByKind.milestone"
-      label="里程碑"
-      icon="i-lucide-flag"
-    />
-    <FacetSelect
-      v-model="location"
-      :items="ds.facets.tagsByKind.location"
-      label="地點"
-      icon="i-lucide-map-pin"
-    />
-    <FacetSelect
-      v-model="state.groups"
-      :items="ds.facets.groups"
-      label="家庭 / 機構"
-      icon="i-lucide-users"
-    />
-    <FacetSelect
-      v-model="state.writers"
-      :items="ds.facets.writers"
-      label="編劇"
-      icon="i-lucide-pen-line"
     />
 
-    <div>
-      <label class="block text-xs font-medium text-muted mb-1">年份</label>
-      <div class="flex gap-2 items-center">
-        <USelectMenu
-          v-model="yearFrom"
-          :items="ds.facets.years.map(y => Number(y.value))"
-          placeholder="由"
-          class="flex-1"
-        />
-        <span class="text-muted">–</span>
-        <USelectMenu
-          v-model="yearTo"
-          :items="ds.facets.years.map(y => Number(y.value))"
-          placeholder="至"
-          class="flex-1"
-        />
-      </div>
-    </div>
-
-    <div>
-      <label class="block text-xs font-medium text-muted mb-1">排序</label>
+    <div class="flex gap-2 items-center">
+      <span class="text-xs font-medium text-muted shrink-0">年份</span>
       <USelectMenu
-        v-model="state.sort"
-        :items="sortItems"
-        value-key="value"
-        class="w-full"
+        v-model="yearFrom"
+        :items="years"
+        placeholder="由"
+        size="sm"
+        class="flex-1 min-w-0"
+      />
+      <span class="text-muted">–</span>
+      <USelectMenu
+        v-model="yearTo"
+        :items="years"
+        placeholder="至"
+        size="sm"
+        class="flex-1 min-w-0"
       />
     </div>
   </div>
