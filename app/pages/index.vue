@@ -17,6 +17,17 @@ const paged = computed(() => filtered.value.slice((page.value - 1) * PAGE, page.
 // mobile filter drawer
 const drawerOpen = ref(false)
 
+// jump straight to an episode by number — faster than filtering when you already
+// know which one you want. Resolved against the dataset so typos don't 404.
+const jumpNo = ref('')
+const jumpTarget = computed(() => {
+  const n = Number(jumpNo.value)
+  return Number.isInteger(n) && core.value?.episodesByNo.has(n) ? n : null
+})
+function jump() {
+  if (jumpTarget.value) navigateTo(`/episode/${jumpTarget.value}`)
+}
+
 // shared across the desktop sidebar + mobile drawer instances of FilterPanel;
 // null until the full tier loads, so render sites guard on `v-if="panelProps"`
 const panelProps = computed(() => full.value
@@ -60,6 +71,35 @@ useSeoMeta({
       <p class="text-muted mt-1 text-sm hidden sm:block">
         篩選 {{ core?.meta.total?.toLocaleString() ?? '2800+' }} 集，依角色、故事線、CP、節日、客串、里程碑與地點找回想重溫的劇情。
       </p>
+
+      <form
+        class="mt-3 flex items-center gap-2"
+        @submit.prevent="jump"
+      >
+        <UInput
+          v-model="jumpNo"
+          type="number"
+          inputmode="numeric"
+          placeholder="集數"
+          icon="i-lucide-hash"
+          size="sm"
+          class="w-28"
+          :aria-label="'跳至指定集數'"
+        />
+        <UButton
+          type="submit"
+          size="sm"
+          color="neutral"
+          variant="subtle"
+          :disabled="!jumpTarget"
+        >
+          前往
+        </UButton>
+        <span
+          v-if="jumpNo && !jumpTarget"
+          class="text-xs text-error"
+        >沒有第 {{ jumpNo }} 集</span>
+      </form>
     </div>
 
     <LoadingState
