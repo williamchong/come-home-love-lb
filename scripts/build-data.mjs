@@ -392,12 +392,19 @@ async function main() {
   const epWik = await read('wikiversity-episodes.wikitext')
   const chWik = await read('wikiversity-characters.wikitext')
   const overlay = JSON.parse(await readFile(join(__dirname, '..', 'data', 'overlay.json'), 'utf8'))
+  const playIds = JSON.parse(await readFile(join(__dirname, '..', 'data', 'play-ids.json'), 'utf8')).ids || {}
   const episodes = parseEpisodes(epWik)
   const plotlines = parsePlotlines(epWik)
   const { characters, groups } = parseCharacters(chWik)
   attachAliases(characters, overlay)
 
   applyEpisodeFixes(episodes, overlay)
+  // Attach after the fixes so renumbered episodes get the id for their corrected
+  // number. TVB's site omits a handful of numbers the wiki lists, so this is sparse.
+  for (const e of episodes) {
+    const id = playIds[String(e.no)]
+    if (id) e.playId = id
+  }
   const ctx = crossLink(episodes, plotlines, characters, overlay)
   const tags = buildTags(episodes, plotlines, characters, overlay, ctx)
 
@@ -406,7 +413,7 @@ async function main() {
     maxNo: Math.max(...episodes.map(e => e.no)),
     firstDate: episodes[0]?.date || '',
     lastDate: episodes[episodes.length - 1]?.date || '',
-    generatedFrom: ['zh.wikiversity.org 集數列表及故事系列', 'zh.wikiversity.org 角色列表', 'data/overlay.json']
+    generatedFrom: ['zh.wikiversity.org 集數列表及故事系列', 'zh.wikiversity.org 角色列表', 'data/overlay.json', 'data/play-ids.json']
   }
 
   await mkdir(OUT, { recursive: true })
