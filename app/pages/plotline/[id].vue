@@ -8,6 +8,14 @@ const pl = computed(() => ds.value?.plotlinesById.get(id.value) || null)
 const sorted = computed(() => [...(pl.value?.episodes || [])].sort((a, b) => a.no - b.no))
 // milestones that live inside this plot line
 const milestones = computed(() => (ds.value?.tags || []).filter(t => t.kind === 'milestone' && t.parentPlotlineId === id.value))
+const tones = computed(() => tagTones(ds.value?.tags ?? []))
+// A plot line lists members by name, and name === id on the roster. The leftover
+// tokens differ by category: 節日 lines list festival names (no entity to tone),
+// every other category lists families and departments — 熊氏一家, 接龍集團保安部 —
+// which resolve to the same hue their members carry.
+const memberStyle = (name: string) => toneTextStyle(
+  ds.value && tokenTone(name, ds.value.charactersById, pl.value?.category !== 'festival')
+)
 
 watchEffect(() => {
   if (pl.value) useSeoMeta({ title: `${pl.value.name}｜愛·回家之開心速遞` })
@@ -61,6 +69,7 @@ watchEffect(() => {
           size="xs"
           color="neutral"
           variant="subtle"
+          :style="memberStyle(c)"
         >
           {{ c }}
         </UButton>
@@ -80,9 +89,10 @@ watchEffect(() => {
         <UBadge
           v-for="m in milestones"
           :key="m.id"
-          color="error"
+          color="neutral"
           variant="soft"
           icon="i-lucide-flag"
+          :style="toneBadgeStyle(tones.get(m.id))"
         >
           {{ m.label }}（{{ m.episodeNos.join('、') }}）
         </UBadge>

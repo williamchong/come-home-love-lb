@@ -1,4 +1,8 @@
 import type { Dataset, FacetOption } from './useDataset'
+import type { EntityTone } from '~/utils/entityTone'
+import { tagTones, tokenTone } from '~/utils/entityTone'
+import type { FacetColor } from '~/types'
+import { FACET_COLOR } from '~/types'
 import { FACET_KEYS, emptyFacets, type FacetKey, type FilterState } from './useEpisodeFilter'
 
 const isFacetKey = (v: string): v is FacetKey => (FACET_KEYS as readonly string[]).includes(v)
@@ -20,6 +24,9 @@ export interface FacetItem extends FacetOption {
   /** Section heading, also indexed for search so typing「節日」lists them all. */
   section: string
   icon: string
+  /** Set only on sections that colour the whole concept — otherwise `tone` is. */
+  color?: FacetColor
+  tone?: EntityTone
 }
 
 /** A section heading row. USelectMenu renders `type: 'label'` items as headings. */
@@ -32,6 +39,8 @@ export interface FacetLabel {
   icon?: never
   section?: never
   aliases?: never
+  color?: never
+  tone?: never
 }
 
 interface Section {
@@ -39,17 +48,26 @@ interface Section {
   label: string
   icon: string
   options: (ds: Dataset) => FacetOption[]
+  /** Exactly one of these: a hue per entity, or one colour for the concept. */
+  tone?: (ds: Dataset, value: string) => EntityTone | undefined
+  color?: FacetColor
 }
+
+const tagTone = (ds: Dataset, id: string) => tagTones(ds.tags).get(id)
+// 角色 facet values are roster ids, 家庭・機構 values raw 故事主人翁 tokens —
+// both are what tokenTone resolves, so members and their family share a hue
+const charTone = (ds: Dataset, id: string) => tokenTone(id, ds.charactersById)
+const groupTone = (ds: Dataset, label: string) => tokenTone(label, ds.charactersById, true)
 
 /** Menu order. Sections are display-only groupings: several map to the same `key`. */
 const SECTIONS: Section[] = [
-  { key: 'characters', label: '角色', icon: 'i-lucide-user', options: ds => ds.facets.characters },
-  { key: 'plotlines', label: '故事線 / CP', icon: 'i-lucide-heart', options: ds => ds.facets.plotlines },
-  { key: 'tags', label: '節日', icon: 'i-lucide-party-popper', options: ds => ds.facets.tagsByKind.festival },
-  { key: 'tags', label: '客串', icon: 'i-lucide-star', options: ds => ds.facets.tagsByKind.cameo },
-  { key: 'tags', label: '里程碑', icon: 'i-lucide-flag', options: ds => ds.facets.tagsByKind.milestone },
-  { key: 'groups', label: '家庭 / 機構', icon: 'i-lucide-users', options: ds => ds.facets.groups },
-  { key: 'writers', label: '編劇', icon: 'i-lucide-pen-line', options: ds => ds.facets.writers }
+  { key: 'characters', label: '角色', icon: 'i-lucide-user', options: ds => ds.facets.characters, tone: charTone },
+  { key: 'plotlines', label: '故事線 / CP', icon: 'i-lucide-heart', options: ds => ds.facets.plotlines, color: FACET_COLOR.plotline },
+  { key: 'tags', label: '節日', icon: 'i-lucide-party-popper', options: ds => ds.facets.tagsByKind.festival, tone: tagTone },
+  { key: 'tags', label: '客串', icon: 'i-lucide-star', options: ds => ds.facets.tagsByKind.cameo, tone: tagTone },
+  { key: 'tags', label: '里程碑', icon: 'i-lucide-flag', options: ds => ds.facets.tagsByKind.milestone, tone: tagTone },
+  { key: 'groups', label: '家庭 / 機構', icon: 'i-lucide-users', options: ds => ds.facets.groups, tone: groupTone },
+  { key: 'writers', label: '編劇', icon: 'i-lucide-pen-line', options: ds => ds.facets.writers, color: FACET_COLOR.writer }
 ]
 
 /** Fields USelectMenu matches the search box against. */
@@ -78,7 +96,9 @@ export function useFacetIndex(ds: MaybeRefOrGetter<Dataset>, searchTerm?: MaybeR
           ...o,
           token: facetToken(s.key, o.value),
           section: s.label,
-          icon: s.icon
+          icon: s.icon,
+          tone: s.tone?.(data, o.value),
+          color: s.color
         }))
       }))
       .filter(s => s.items.length)

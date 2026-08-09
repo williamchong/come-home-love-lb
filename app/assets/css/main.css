@@ -1,6 +1,15 @@
 @import "tailwindcss";
 @import "@nuxt/ui";
 
+/* Let the inline light-dark() entity tones (utils/entityTone.ts) follow the
+   colour-mode class that @nuxtjs/color-mode sets on <html>. */
+html {
+  color-scheme: light;
+}
+html.dark {
+  color-scheme: dark;
+}
+
 @theme static {
   --font-sans: 'Public Sans', sans-serif;
 

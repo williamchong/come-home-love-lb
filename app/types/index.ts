@@ -97,10 +97,20 @@ export function mytvsuperUrl(playId: number | undefined): string | undefined {
   return playId ? `https://www.mytvsuper.com/tc/programme/loandbehold_110561/e/${playId}/` : undefined
 }
 
-/** Nuxt UI badge colour per tag kind. */
-export const TAG_COLOR = {
-  festival: 'warning',
-  cameo: 'info',
-  milestone: 'error',
-  special: 'neutral'
-} as const satisfies Record<TagKind, string>
+/**
+ * Colour for the facet types with no per-entity tone. 角色, 家庭・機構 and the
+ * tag kinds each colour their own entities (`utils/entityTone.ts`); these two
+ * have nothing to vary by, so one hue stands for the whole concept.
+ */
+export const FACET_COLOR = {
+  plotline: 'primary',
+  writer: 'neutral'
+} as const
+
+export type FacetColor = typeof FACET_COLOR[keyof typeof FACET_COLOR]
+
+/** Text-colour class per colour, spelled out so Tailwind's scanner sees each one. */
+export const FACET_TEXT_CLASS = {
+  primary: 'text-primary',
+  neutral: 'text-muted'
+} as const satisfies Record<FacetColor, string>

@@ -14,6 +14,8 @@ const plotlines = computed(() => {
   if (!ds.value || !name) return []
   return ds.value.plotlines.filter(p => p.characters.includes(name))
 })
+// the subject's own tone, the same one their name carries on every card
+const tone = computed(() => ch.value && characterTone(ch.value))
 
 watchEffect(() => {
   if (ch.value) useSeoMeta({ title: `${ch.value.name}｜愛·回家之開心速遞` })
@@ -45,12 +47,18 @@ watchEffect(() => {
       找不到此角色。
     </div>
     <template v-else>
-      <h1 class="text-2xl font-bold text-highlighted">
+      <h1
+        class="text-2xl font-bold text-highlighted"
+        :style="toneTextStyle(tone)"
+      >
         {{ ch.name }}
       </h1>
       <p class="text-muted mt-1">
         <span v-if="ch.actor">{{ ch.actor }} 飾</span>
-        <span v-if="ch.group"> · {{ ch.group }}</span>
+        <span
+          v-if="ch.group"
+          :style="toneTextStyle(familyTone(ch.group))"
+        > · {{ ch.group }}</span>
         <span v-if="ch.homophone"> · 諧音「{{ ch.homophone }}」</span>
       </p>
       <p
@@ -103,6 +111,7 @@ watchEffect(() => {
             :episode="ep"
             :ds="ds"
             :plotlines-by-id="ds.plotlinesById"
+            :characters-by-id="ds.charactersById"
           />
         </div>
       </section>
