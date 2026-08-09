@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { Dataset } from '~/composables/useDataset'
+import { FACET_TEXT_CLASS } from '~/types'
 
 const props = withDefaults(
   defineProps<{ ds: Dataset, activeCount: number, resultCount: number, showCount?: boolean }>(),
@@ -18,7 +19,15 @@ const tokens = useFacetTokens(state)
 // be in the index — show its raw value rather than dropping it from the filter.
 const chips = computed(() => tokens.value.map((token) => {
   const item = byToken.value.get(token)
-  return { token, label: item?.label ?? parseToken(token)?.value ?? token, icon: item?.icon ?? 'i-lucide-tag' }
+  return {
+    token,
+    label: item?.label ?? parseToken(token)?.value ?? token,
+    icon: item?.icon ?? 'i-lucide-tag',
+    // a toned entity keeps its neutral surface — an inline background would
+    // beat the button's hover class — and carries its hue in text + icon
+    color: item?.color ?? 'neutral',
+    style: toneTextStyle(item?.tone)
+  }
 }))
 function removeChip(token: string) {
   tokens.value = tokens.value.filter(t => t !== token)
@@ -86,6 +95,14 @@ const years = computed(() => props.ds.facets.years.map(y => Number(y.value)))
       <template #default>
         <span class="text-dimmed">新增篩選…</span>
       </template>
+      <template #item-leading="{ item }">
+        <UIcon
+          v-if="item.icon"
+          :name="item.icon"
+          :class="['size-5 shrink-0', item.color ? FACET_TEXT_CLASS[item.color] : '']"
+          :style="toneTextStyle(item.tone)"
+        />
+      </template>
       <template #item-label="{ item }">
         <span class="truncate">{{ item.label }}</span>
         <span
@@ -104,8 +121,9 @@ const years = computed(() => props.ds.facets.years.map(y => Number(y.value)))
         v-for="chip in chips"
         :key="chip.token"
         size="sm"
-        color="neutral"
+        :color="chip.color"
         variant="soft"
+        :style="chip.style"
         :icon="chip.icon"
         trailing-icon="i-lucide-x"
         :aria-label="`移除篩選：${chip.label}`"

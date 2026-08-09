@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { CATEGORY_LABEL, TAG_COLOR, mytvsuperUrl } from '~/types'
+import { CATEGORY_LABEL, mytvsuperUrl } from '~/types'
 
 const route = useRoute()
 const no = computed(() => Number(route.params.no))
@@ -11,6 +11,11 @@ const characters = computed(() => (ep.value?.characterIds || []).map(id => ds.va
 const plotlines = computed(() => (ep.value?.plotlineIds || []).map(id => ds.value?.plotlinesById.get(id)).filter(isPresent))
 const tags = computed(() => (ep.value?.tagIds || []).map(id => ds.value?.tagsById.get(id)).filter(isPresent))
 const watchUrl = computed(() => mytvsuperUrl(ep.value?.playId))
+const tones = computed(() => tagTones(ds.value?.tags ?? []))
+// 主線角色 are raw 故事主人翁 tokens — usually a character, occasionally a group
+const focusStyle = (token: string) => toneBadgeStyle(
+  ds.value && tokenTone(token, ds.value.charactersById, ep.value?.groupIds.includes(token))
+)
 const prev = computed(() => ds.value?.episodesByNo.get(no.value - 1))
 const next = computed(() => ds.value?.episodesByNo.get(no.value + 1))
 
@@ -76,8 +81,9 @@ watchEffect(() => {
           :key="t.id"
         >
           <UBadge
-            :color="TAG_COLOR[t.kind]"
+            color="neutral"
             variant="soft"
+            :style="toneBadgeStyle(tones.get(t.id))"
           >
             {{ t.label }}
           </UBadge>
@@ -101,8 +107,9 @@ watchEffect(() => {
           <UBadge
             v-for="c in ep.focus"
             :key="c"
-            color="primary"
+            color="neutral"
             variant="soft"
+            :style="focusStyle(c)"
           >
             {{ c }}
           </UBadge>
@@ -124,6 +131,7 @@ watchEffect(() => {
             size="xs"
             color="neutral"
             variant="subtle"
+            :style="toneTextStyle(characterTone(c))"
           >
             {{ c.name }}<span
               v-if="c.actor"

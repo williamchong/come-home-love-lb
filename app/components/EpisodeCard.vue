@@ -1,16 +1,19 @@
 <script setup lang="ts">
 import type { CoreDataset } from '~/composables/useDataset'
-import type { Episode, Plotline } from '~/types'
-import { TAG_COLOR } from '~/types'
+import type { Character, Episode, Plotline } from '~/types'
+import { FACET_COLOR } from '~/types'
 
 const props = defineProps<{
   episode: Episode
   ds: CoreDataset
   /** From the full dataset tier — 所屬故事線 badges appear once it loads. */
   plotlinesById?: Map<string, Plotline> | null
+  /** From the full dataset tier — cast names take their family tone once it loads. */
+  charactersById?: Map<string, Character> | null
 }>()
 
 const tags = computed(() => props.episode.tagIds.map(id => props.ds.tagsById.get(id)).filter(isPresent))
+const tones = computed(() => tagTones(props.ds.tags))
 
 // keep cards compact: an episode can sit in up to 11 plot lines. Festival
 // plot lines share their name with the episode's festival tag — showing both
@@ -31,6 +34,12 @@ const cast = computed(() => {
     : props.episode.protagonists
   return ids.slice(0, 5)
 })
+
+// Cast tones resolve only once the full tier delivers charactersById, so until
+// then the row stays muted (same progressive fill-in as the plotline badges).
+const castStyle = (token: string) => toneTextStyle(
+  props.charactersById && tokenTone(token, props.charactersById, props.episode.groupIds.includes(token))
+)
 </script>
 
 <template>
@@ -61,6 +70,7 @@ const cast = computed(() => {
             v-for="c in cast"
             :key="c"
             class="text-xs text-muted"
+            :style="castStyle(c)"
           >{{ c }}</span>
         </div>
         <div
@@ -70,7 +80,7 @@ const cast = computed(() => {
           <UBadge
             v-for="p in shownPlotlines"
             :key="p.id"
-            color="primary"
+            :color="FACET_COLOR.plotline"
             variant="soft"
             size="sm"
           >
@@ -78,7 +88,7 @@ const cast = computed(() => {
           </UBadge>
           <UBadge
             v-if="morePlotlines"
-            color="primary"
+            :color="FACET_COLOR.plotline"
             variant="soft"
             size="sm"
           >
@@ -87,9 +97,10 @@ const cast = computed(() => {
           <UBadge
             v-for="t in tags"
             :key="t.id"
-            :color="TAG_COLOR[t.kind]"
+            color="neutral"
             variant="soft"
             size="sm"
+            :style="toneBadgeStyle(tones.get(t.id))"
           >
             {{ t.label }}
           </UBadge>

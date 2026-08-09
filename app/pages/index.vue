@@ -190,6 +190,7 @@ useSeoMeta({
               :episode="ep"
               :ds="core"
               :plotlines-by-id="full?.plotlinesById"
+              :characters-by-id="full?.charactersById"
             />
           </div>
 
