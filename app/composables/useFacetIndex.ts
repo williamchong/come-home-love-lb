@@ -92,6 +92,7 @@ export function useFacetIndex(ds: MaybeRefOrGetter<Dataset>, searchTerm?: MaybeR
     return SECTIONS
       .map(s => ({
         label: s.label,
+        icon: s.icon,
         items: s.options(data).map((o): FacetItem => ({
           ...o,
           token: facetToken(s.key, o.value),
@@ -126,7 +127,10 @@ export function useFacetIndex(ds: MaybeRefOrGetter<Dataset>, searchTerm?: MaybeR
     return map
   })
 
-  return { groups, byToken }
+  // `sections` is the uncapped set the other two are derived from; the panel's
+  // browse block takes its own slice of it, so the directory and the menu can
+  // never disagree on a label, hue or token.
+  return { sections, groups, byToken }
 }
 
 /**
