@@ -35,7 +35,7 @@ export interface TonedPlotline extends Plotline {
   tone: EntityTone
 }
 
-/** Second tier: adds the character/plot-line/group data used by facets, presets and detail pages. */
+/** Second tier: adds the character/plot-line/group data used by facets and detail pages. */
 export interface Dataset extends CoreDataset {
   characters: Character[]
   charactersById: Map<string, Character>

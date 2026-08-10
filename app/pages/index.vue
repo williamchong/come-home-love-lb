@@ -2,25 +2,19 @@
 import { SERIES_NAME, SITE_LOCALE } from '~/types'
 
 // Two tiers: `core` (episodes/tags/meta) paints the list fast; `full` (adds
-// characters/plot lines/groups) loads in the background for presets + filters.
+// characters/plot lines/groups) loads in the background for the facet panel.
 const { data: core } = useCoreDatasetAsync()
 const { data: full } = useDatasetAsync()
 
-const { state, filtered, activeCount, reset } = useEpisodeFilter(core)
-
-// pagination
-const PAGE = 48
-const page = ref(1)
-watch(filtered, () => {
-  page.value = 1
-})
-const paged = computed(() => filtered.value.slice((page.value - 1) * PAGE, page.value * PAGE))
+// Paging lives in the filter state alongside the facets, so it mirrors to the
+// URL (?p=3) and a shared link opens where it was left.
+const { state, filtered, paged, pageCount, activeCount, reset } = useEpisodeFilter(core)
 
 // Both tiers are client-only, so the prerendered homepage would otherwise ship
 // a spinner as its entire body. The seed is one page of episodes rendered at
 // build time — real text and 48 crawlable links — and it hands over to the
 // filterable list the moment `core` resolves.
-const { data: seed } = await useHomeSeedAsync(PAGE)
+const { data: seed } = await useHomeSeedAsync(PAGE_SIZE)
 const seedPlotlinesById = computed(() => byId(seed.value?.cardPlotlines ?? []))
 const seedCharactersById = computed(() => byId(seed.value?.cardCharacters ?? []))
 
@@ -47,28 +41,12 @@ const panelProps = computed(() => full.value
   ? { ds: full.value, activeCount: activeCount.value, resultCount: filtered.value.length }
   : null)
 
-// quick presets (set a filter in one click) — need the full tier's facets
-const presets = computed(() => {
-  if (!full.value) return []
-  const find = (label: string, list: { value: string, label: string }[]) => list.find(o => o.label.includes(label))
-  const out: { text: string, apply: () => void }[] = []
-  const apply = (key: 'plotlines' | 'tags' | 'characters', value: string) => () => {
-    reset()
-    state.value[key] = [value]
-  }
-  const add = (text: string, opt: { value: string } | undefined, key: 'plotlines' | 'tags' | 'characters') => {
-    if (opt) out.push({ text, apply: apply(key, opt.value) })
-  }
-  add('💍 龔水戀', find('龔水戀', full.value.facets.plotlines), 'plotlines')
-  add('☕ 仁菲戀', find('仁菲戀', full.value.facets.plotlines), 'plotlines')
-  add('🎭 歐陽bobby', find('歐陽bobby', full.value.facets.tagsByKind.cameo), 'tags')
-  add('💒 龔水結婚', find('龔水結婚', full.value.facets.tagsByKind.milestone), 'tags')
-  add('🎄 聖誕節', find('聖誕', full.value.facets.tagsByKind.festival), 'tags')
-  // 島大線 comes from the wiki's curated 友情系列 plot line, not a place-name scan
-  add('🏫 島大線', find('香港島大學', full.value.facets.plotlines), 'plotlines')
-  add('👵 崔auntie', find('崔李悟璋', full.value.facets.characters), 'characters')
-  return out
-})
+// 精選: curated entry points from `data/overlay.json → featured`, resolved into
+// the prerendered seed so the first screen is a browsable index.
+const featured = computed(() => seed.value?.featured ?? [])
+
+const listHeading = computed(() =>
+  activeCount.value ? '篩選結果' : SORT_HEADING[state.value.sort])
 
 // Title and description come from app.vue, which already carries the
 // site-level pair this page would otherwise repeat verbatim.
@@ -123,19 +101,47 @@ useSchemaOrg([
       </form>
     </div>
 
+    <!-- 精選 — part of the prerendered seed, so the first screen is curated
+         entry points rather than a spinner. Hidden once a filter is on: it is
+         a place to start from, not a result.
+         `!core ||` is what keeps hydration honest: the prerendered HTML is
+         always unfiltered, while the client has already read the arrival query
+         by first render, so gating on `activeCount` alone would drop this
+         section on a shared /?plots=… link and mismatch. Before the dataset
+         lands both sides agree it is shown; the filter can hide it after. -->
+    <section
+      v-if="featured.length && (!core || !activeCount)"
+      class="mb-5"
+    >
+      <h2 class="text-sm font-semibold text-highlighted mb-2">
+        精選
+      </h2>
+      <div class="flex gap-2 overflow-x-auto pb-1 sm:grid sm:grid-cols-3 lg:grid-cols-4 sm:overflow-visible sm:pb-0">
+        <FeaturedCard
+          v-for="f in featured"
+          :key="`${f.kind}:${f.id}`"
+          :item="f"
+        />
+      </div>
+    </section>
+
     <!-- Prerendered seed — see `useHomeSeedAsync` above. Mirrors the real grid
          so handing over to the filterable list doesn't shift the layout. -->
-    <div
-      v-if="!core"
-      class="grid sm:grid-cols-2 gap-3"
-    >
-      <EpisodeCard
-        v-for="ep in seed?.episodes ?? []"
-        :key="ep.no"
-        :episode="ep"
-        :plotlines-by-id="seedPlotlinesById"
-        :characters-by-id="seedCharactersById"
-      />
+    <div v-if="!core">
+      <!-- the seed's own order, not `listHeading`: a heading that varied with
+           the arrival query would mismatch, for the reason given above -->
+      <h2 class="text-sm font-semibold text-highlighted mb-2">
+        {{ SORT_HEADING[DEFAULT_SORT] }}
+      </h2>
+      <div class="grid sm:grid-cols-2 gap-3">
+        <EpisodeCard
+          v-for="ep in seed?.episodes ?? []"
+          :key="ep.no"
+          :episode="ep"
+          :plotlines-by-id="seedPlotlinesById"
+          :characters-by-id="seedCharactersById"
+        />
+      </div>
     </div>
 
     <template v-else>
@@ -180,25 +186,11 @@ useSchemaOrg([
 
         <div>
           <!-- mobile shows sort in the sticky bar instead -->
-          <div class="hidden lg:flex justify-end -mt-1 mb-1">
-            <SortSelect />
-          </div>
-
-          <div
-            v-if="!activeCount && presets.length"
-            class="mb-4 flex gap-2 overflow-x-auto pb-1 lg:flex-wrap lg:overflow-visible"
-          >
-            <UButton
-              v-for="p in presets"
-              :key="p.text"
-              size="sm"
-              color="neutral"
-              variant="soft"
-              class="shrink-0"
-              @click="p.apply"
-            >
-              {{ p.text }}
-            </UButton>
+          <div class="flex items-center justify-between gap-3 -mt-1 mb-2">
+            <h2 class="text-sm font-semibold text-highlighted">
+              {{ listHeading }}
+            </h2>
+            <SortSelect class="hidden lg:block" />
           </div>
 
           <div
@@ -222,13 +214,13 @@ useSchemaOrg([
           </div>
 
           <div
-            v-if="filtered.length > PAGE"
+            v-if="pageCount > 1"
             class="mt-6 flex justify-center"
           >
             <UPagination
-              v-model:page="page"
+              v-model:page="state.page"
               :total="filtered.length"
-              :items-per-page="PAGE"
+              :items-per-page="PAGE_SIZE"
               :sibling-count="1"
             />
           </div>
