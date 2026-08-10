@@ -52,5 +52,14 @@
     }
   ],
 
-  "featured": ["龔水戀", "仁菲戀", "歐陽bobby", "崔李悟璋", "全家福"]
+  "_featured_comment": "Curated entry points for the home page's 精選 row, in display order. `kind` picks which catalogue `ref` is resolved against — plotline/character by name, tag by label. build-data.mjs warns on anything that no longer resolves (a renamed plot line, a dropped tag) rather than shipping a dead card.",
+  "featured": [
+    { "kind": "plotline", "ref": "龔水戀", "emoji": "💍" },
+    { "kind": "plotline", "ref": "仁菲戀", "emoji": "☕" },
+    { "kind": "tag", "ref": "龔水結婚", "emoji": "💒" },
+    { "kind": "character", "ref": "崔李悟璋", "emoji": "👵" },
+    { "kind": "plotline", "ref": "香港島大學", "emoji": "🏫" },
+    { "kind": "tag", "ref": "歐陽bobby", "emoji": "🎭" },
+    { "kind": "tag", "ref": "聖誕節", "emoji": "🎄" }
+  ]
 }

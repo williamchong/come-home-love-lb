@@ -2,7 +2,7 @@ import type { Dataset, FacetOption } from './useDataset'
 import type { EntityTone } from '~/utils/entityTone'
 import { tagTones, tokenTone } from '~/utils/entityTone'
 import type { FacetColor } from '~/types'
-import { FACET_COLOR } from '~/types'
+import { FACET_COLOR, TAG_KIND_LABEL } from '~/types'
 import { FACET_KEYS, emptyFacets, type FacetKey, type FilterState } from './useEpisodeFilter'
 
 const isFacetKey = (v: string): v is FacetKey => (FACET_KEYS as readonly string[]).includes(v)
@@ -65,9 +65,9 @@ const plotTone = (ds: Dataset, id: string) => ds.plotlinesById.get(id)?.tone
 const SECTIONS: Section[] = [
   { key: 'characters', label: '角色', icon: 'i-lucide-user', options: ds => ds.facets.characters, tone: charTone },
   { key: 'plotlines', label: '故事線 / CP', icon: 'i-lucide-heart', options: ds => ds.facets.plotlines, tone: plotTone },
-  { key: 'tags', label: '節日', icon: 'i-lucide-party-popper', options: ds => ds.facets.tagsByKind.festival, tone: tagTone },
-  { key: 'tags', label: '客串', icon: 'i-lucide-star', options: ds => ds.facets.tagsByKind.cameo, tone: tagTone },
-  { key: 'tags', label: '里程碑', icon: 'i-lucide-flag', options: ds => ds.facets.tagsByKind.milestone, tone: tagTone },
+  { key: 'tags', label: TAG_KIND_LABEL.festival, icon: 'i-lucide-party-popper', options: ds => ds.facets.tagsByKind.festival, tone: tagTone },
+  { key: 'tags', label: TAG_KIND_LABEL.cameo, icon: 'i-lucide-star', options: ds => ds.facets.tagsByKind.cameo, tone: tagTone },
+  { key: 'tags', label: TAG_KIND_LABEL.milestone, icon: 'i-lucide-flag', options: ds => ds.facets.tagsByKind.milestone, tone: tagTone },
   { key: 'groups', label: '家庭 / 機構', icon: 'i-lucide-users', options: ds => ds.facets.groups, tone: groupTone },
   { key: 'writers', label: '編劇', icon: 'i-lucide-pen-line', options: ds => ds.facets.writers, color: FACET_COLOR.writer }
 ]

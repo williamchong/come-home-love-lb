@@ -69,11 +69,27 @@ export interface Tag {
   summary?: string
 }
 
+/** Which catalogue a `FeaturedRef.id` points into. */
+export type FeaturedKind = 'plotline' | 'character' | 'tag'
+
+/**
+ * A curated home-page entry point, hand-listed in `data/overlay.json → featured`
+ * and resolved to an id by `build-data.mjs`. Everything a card shows — label,
+ * episode count, tone — is looked up from the id, so the overlay only carries
+ * the editorial part: which entity, in what order, under which emoji.
+ */
+export interface FeaturedRef {
+  kind: FeaturedKind
+  id: string
+  emoji: string
+}
+
 export interface Meta {
   total: number
   maxNo: number
   firstDate: string
   lastDate: string
+  featured: FeaturedRef[]
   generatedFrom: string[]
 }
 
@@ -108,6 +124,14 @@ export const CATEGORY_LABEL: Record<PlotlineCategory, string> = {
  */
 export function mytvsuperUrl(playId: number | undefined): string | undefined {
   return playId ? `https://www.mytvsuper.com/tc/programme/loandbehold_110561/e/${playId}/` : undefined
+}
+
+/** Short Chinese label per tag kind — the facet panel's section names, and the context line on a 精選 card. */
+export const TAG_KIND_LABEL: Record<TagKind, string> = {
+  festival: '節日',
+  cameo: '客串',
+  milestone: '里程碑',
+  special: '特別'
 }
 
 /**

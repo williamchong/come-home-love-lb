@@ -445,6 +445,25 @@ function attachAliases(characters, overlay) {
   }
 }
 
+// Curated home-page entry points (overlay.featured), resolved to catalogue ids
+// so the app never has to match on names. Resolving here also means a renamed
+// plot line or a dropped tag shows up as a build warning rather than as a card
+// that silently disappears from the 精選 row.
+function resolveFeatured(overlay, plotlines, tags, nameToId) {
+  const byKind = {
+    plotline: new Map(plotlines.map(p => [p.name, p.id])),
+    character: nameToId,
+    tag: new Map(tags.map(t => [t.label, t.id]))
+  }
+  const out = []
+  for (const f of overlay.featured || []) {
+    const id = byKind[f.kind]?.get(f.ref)
+    if (id) out.push({ kind: f.kind, id, emoji: f.emoji })
+    else console.warn(`  ! featured ${f.kind} 「${f.ref}」 does not resolve — dropped`)
+  }
+  return out
+}
+
 async function main() {
   const epWik = await read('wikiversity-episodes.wikitext')
   const chWik = await read('wikiversity-characters.wikitext')
@@ -472,6 +491,7 @@ async function main() {
     maxNo: Math.max(...episodes.map(e => e.no)),
     firstDate: episodes[0]?.date || '',
     lastDate: episodes[episodes.length - 1]?.date || '',
+    featured: resolveFeatured(overlay, plotlines, tags, ctx.nameToId),
     generatedFrom: ['zh.wikiversity.org 集數列表及故事系列', 'zh.wikiversity.org 角色列表', 'data/overlay.json', 'data/play-ids.json', 'data/mentions.json']
   }
 
@@ -521,6 +541,8 @@ async function main() {
   console.log(' ', JSON.stringify(byKind), `total=${tags.length}`)
   for (const t of tags.filter(t => t.kind === 'festival')) console.log(`  festival ${t.label}: ${t.episodeNos.length} eps`)
   for (const t of tags.filter(t => t.kind === 'cameo' || t.kind === 'milestone')) console.log(`  ${t.kind} ${t.label}: eps=${t.episodeNos.join(',')}${t.parentPlotlineId ? ' parent=' + t.parentPlotlineId : ''}`)
+  console.log('— Featured —')
+  console.log(`  ${meta.featured.length}/${(overlay.featured || []).length} resolved: ${meta.featured.map(f => f.emoji + f.id).join(' ')}`)
   console.log('— Fix check —')
   const e824 = episodes.find(e => e.no === 824)
   console.log(`  ep824 = ${e824 ? e824.title + ' (' + e824.date + ')' : 'MISSING'}`)

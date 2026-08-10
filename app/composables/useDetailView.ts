@@ -1,6 +1,10 @@
-import type { Character, Episode, Meta, PlotlineCategory } from '~/types'
+import type { Character, Episode, FeaturedRef, Meta, PlotlineCategory } from '~/types'
 import type { EntityTone } from '~/utils/entityTone'
 import type { Dataset, TonedPlotline } from './useDataset'
+import { CATEGORY_LABEL, TAG_KIND_LABEL } from '~/types'
+import { characterTone } from '~/utils/entityTone'
+import { TAG_TONES } from '~/utils/tags'
+import { DEFAULT_SORT, bySort } from './useEpisodeFilter'
 import { loadDataset } from './useDataset'
 
 /**
@@ -152,16 +156,73 @@ async function buildPlotlineView(id: string): Promise<PlotlineView | null> {
   }
 }
 
+/** A curated 精選 entry with everything its card renders resolved out of the dataset. */
+export interface FeaturedItem extends FeaturedRef {
+  label: string
+  /** Context line under the name — 愛情 / 客串・演員 / the family a character belongs to. */
+  meta: string
+  episodeCount: number
+  /** Optional because `toneTextStyle` takes an unresolved lookup and falls back on its own. */
+  tone?: EntityTone
+  /** Where the card goes. Only 故事線 and 角色 have pages; a tag opens its filtered list. */
+  to: string
+}
+
+/**
+ * Resolves one `overlay.featured` entry. Returns null rather than throwing when
+ * an id is stale, so a dataset refresh that drops an entity quietly loses the
+ * card instead of breaking the home page — `build-data.mjs` already warns loudly
+ * at the point the reference actually went bad.
+ */
+function toFeaturedItem(ds: Dataset, f: FeaturedRef): FeaturedItem | null {
+  if (f.kind === 'plotline') {
+    const pl = ds.plotlinesById.get(f.id)
+    if (!pl) return null
+    return {
+      ...f, label: pl.name, meta: CATEGORY_LABEL[pl.category], episodeCount: pl.episodes.length,
+      tone: pl.tone, to: `/plotline/${pl.id}`
+    }
+  }
+  if (f.kind === 'character') {
+    const ch = ds.charactersById.get(f.id)
+    if (!ch) return null
+    return {
+      ...f, label: ch.name, meta: ch.actor || ch.group || '角色', episodeCount: ch.episodeNos?.length ?? 0,
+      tone: characterTone(ch), to: `/character/${encodeURIComponent(ch.id)}`
+    }
+  }
+  const tag = ds.tagsById.get(f.id)
+  if (!tag) return null
+  return {
+    ...f,
+    label: tag.label,
+    meta: [TAG_KIND_LABEL[tag.kind], tag.guestActor].filter(Boolean).join('・'),
+    episodeCount: tag.episodeNos.length,
+    tone: TAG_TONES.get(tag.id),
+    // no per-tag page exists, so the card opens the list already filtered to it
+    to: `/?tags=${encodeURIComponent(tag.id)}`
+  }
+}
+
 export interface HomeSeed extends EpisodeCardList {
-  meta: Meta
+  /** Only the count the page prints — the rest of `Meta`, `featured` included, is resolved below. */
+  meta: Pick<Meta, 'total'>
+  featured: FeaturedItem[]
 }
 
 async function buildHomeSeed(count: number): Promise<HomeSeed> {
   const ds = await loadDataset()
-  // Sorted rather than trusted: the seed has to match what `useEpisodeFilter`
-  // shows in its default 集數 ↑ order, or the handover visibly reshuffles.
-  const episodes = [...ds.episodes].sort((a, b) => a.no - b.no).slice(0, count)
-  return { meta: ds.meta, ...toCardList(ds, episodes) }
+  // Ordered rather than trusted: the seed has to match what `useEpisodeFilter`
+  // shows in its default order, or the handover visibly reshuffles.
+  const episodes = [...ds.episodes].sort(bySort(DEFAULT_SORT)).slice(0, count)
+  return {
+    meta: { total: ds.meta.total },
+    // Resolved here rather than in the page so the 精選 row is part of the
+    // prerendered payload — it is the home page's first screen, and the tier
+    // that could resolve it client-side (characters/plot lines) is the slow one.
+    featured: ds.meta.featured.map(f => toFeaturedItem(ds, f)).filter(isPresent),
+    ...toCardList(ds, episodes)
+  }
 }
 
 // A reactive key is enough to refetch on param change: Nuxt watches it with a
