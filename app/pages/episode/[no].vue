@@ -19,6 +19,13 @@ const focusStyle = (token: string) => toneBadgeStyle(
 )
 const prev = computed(() => view.value?.prev ?? null)
 const next = computed(() => view.value?.next ?? null)
+const arcs = computed(() => view.value?.arcs ?? [])
+// Null until `?list=` resolves on the client, which is what keeps the bar's
+// first render identical to the prerendered HTML. Nuxt seeds a new key's data
+// with the previous key's value, so a result resolved around another episode is
+// dropped rather than flashed — see `usePlaylistAsync`.
+const { data: playlistData } = usePlaylistAsync(no, arcs)
+const playlist = computed(() => (playlistData.value?.no === no.value ? playlistData.value : null))
 
 const title = computed(() => (ep.value ? pageTitle(`第${ep.value.no}集 ${ep.value.title}`) : '找不到此劇集'))
 
@@ -196,28 +203,16 @@ useSchemaOrg(computed(() => (ep.value
         </div>
       </section>
 
-      <USeparator class="my-6" />
-      <div class="flex justify-between">
-        <UButton
-          v-if="prev"
-          :to="`/episode/${prev.no}`"
-          icon="i-lucide-chevron-left"
-          variant="ghost"
-          color="neutral"
-        >
-          {{ prev.no }} {{ prev.title }}
-        </UButton>
-        <span v-else />
-        <UButton
-          v-if="next"
-          :to="`/episode/${next.no}`"
-          trailing-icon="i-lucide-chevron-right"
-          variant="ghost"
-          color="neutral"
-        >
-          {{ next.no }} {{ next.title }}
-        </UButton>
-      </div>
+      <!-- ±1 by default; steps through whatever list the visitor arrived inside
+           once `?list=` resolves. -->
+      <EpisodeTransport
+        :no="ep.no"
+        :prev="prev"
+        :next="next"
+        :playlist="playlist"
+        :arcs="arcs"
+        :plotlines="plotlines"
+      />
     </template>
   </UContainer>
 </template>

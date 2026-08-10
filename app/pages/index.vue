@@ -45,6 +45,25 @@ const panelProps = computed(() => full.value
 // the prerendered seed so the first screen is a browsable index.
 const featured = computed(() => seed.value?.featured ?? [])
 
+/**
+ * The list an opened card hands on to the episode page as `?list=`.
+ *
+ * Only when the results are narrowed to exactly one facet and nothing else:
+ * that is the "I'm browsing 龔水戀" case, and the token names a list the
+ * episode page can resolve and label on its own. Two facets AND-ed together,
+ * or a facet plus a title search / year range / 配角出場, describe a set with no
+ * name and no page — those keep the sequential default rather than promise a
+ * playlist that isn't the one on screen.
+ *
+ * One token *and* one active filter is what rules the first two out, since
+ * `activeFilterCount` counts the title search and each year bound alongside the
+ * facets. 配角出場 deliberately isn't in that count, so it is checked here.
+ */
+const tokens = useFacetTokens(state)
+const list = computed(() => (tokens.value.length === 1 && activeCount.value === 1 && !state.value.includeMentions
+  ? tokens.value[0]!
+  : null))
+
 const listHeading = computed(() =>
   activeCount.value ? '篩選結果' : SORT_HEADING[state.value.sort])
 
@@ -210,6 +229,7 @@ useSchemaOrg([
               :episode="ep"
               :plotlines-by-id="full?.plotlinesById"
               :characters-by-id="full?.charactersById"
+              :list="list"
             />
           </div>
 

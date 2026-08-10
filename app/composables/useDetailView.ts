@@ -53,6 +53,47 @@ export type PlotlineBadge = Pick<PlotlineRef, 'id' | 'name' | 'tone'>
 /** Enough of an episode for the prev/next footer links. */
 export type EpisodeNav = Pick<Episode, 'no' | 'title'>
 
+/** Where an episode sits in an ordered list, and what is either side of it. */
+export interface EpisodePosition {
+  /** 1-based. */
+  index: number
+  total: number
+  prev: EpisodeNav | null
+  next: EpisodeNav | null
+}
+
+/** Reads an episode back out of the dataset in the shape a prev/next link needs. */
+export const episodeNav = (ds: Dataset) => (n: number): EpisodeNav | null => {
+  const e = ds.episodesByNo.get(n)
+  return e ? { no: e.no, title: e.title } : null
+}
+
+/**
+ * Position of `no` within a list of episode numbers. Always ascending — watch
+ * order — however the list that produced it happened to be sorted.
+ */
+export function positionIn(nos: number[], no: number, nav: (n: number) => EpisodeNav | null): EpisodePosition | null {
+  const sorted = [...new Set(nos)].sort((a, b) => a - b)
+  const at = sorted.indexOf(no)
+  if (at < 0) return null
+  return {
+    index: at + 1,
+    total: sorted.length,
+    prev: at > 0 ? nav(sorted[at - 1]!) : null,
+    next: at < sorted.length - 1 ? nav(sorted[at + 1]!) : null
+  }
+}
+
+/**
+ * One story line containing this episode, with its neighbours *inside that line*
+ * already resolved — the playlist this episode sits in, rather than the episode
+ * that happens to have aired next.
+ */
+export interface ArcNav extends EpisodePosition {
+  id: string
+  name: string
+}
+
 /** Exactly the fields `EpisodeCard` renders — the rest of `Episode` is payload weight. */
 export type EpisodeCardData = Pick<Episode,
   'no' | 'date' | 'title' | 'tagIds' | 'plotlineIds' | 'focus' | 'protagonists' | 'groupIds'>
@@ -96,8 +137,79 @@ export interface EpisodeView {
   /** Roster entries for the cast *and* the 故事主人翁 tokens, keyed by id in the page. */
   characters: CharacterRef[]
   plotlines: PlotlineRef[]
+  /** Story-line neighbours, most specific arc first. Empty for an unlinked episode. */
+  arcs: ArcNav[]
   prev: EpisodeNav | null
   next: EpisodeNav | null
+}
+
+/**
+ * Resolves each plot line this episode belongs to down to *just* the episodes
+ * either side of it.
+ *
+ * Only 7% of within-arc adjacent pairs are also numerically adjacent, so `no ± 1`
+ * — what this page shipped before — almost never continues the story you are
+ * actually following. The ordered lists that answer it are already on the plot
+ * line (`Plotline.episodes`), but handing them to the page would cost ~7.3 KB
+ * per episode, or 19.5 MB across the site against a ~6.1 MB total today.
+ * Resolving them to two `EpisodeNav`s here costs ~130 B per arc and, unlike
+ * anything derived from filter state, survives into the prerendered payload —
+ * which is what lets a cold shared link carry the nav at all.
+ *
+ * Festivals are the one thing "smallest wins" gets wrong, and they arrive by two
+ * doors. Festival *tags* aren't arcs at all — 端午節 is seven episodes spread
+ * over seven years — and the one multi-episode 里程碑 sits inside its parent plot
+ * line anyway, so tags are left out entirely. Festival *plot lines* are real
+ * (故事系列 indexes them) but they are also the smallest category, so untouched
+ * they would take the primary slot from every actual story: 第1458集 燁水婚前派對
+ * would step to next Christmas, 357 episodes away, instead of on through the
+ * wedding. They stay available, ranked last.
+ *
+ * 95% of episodes (2,725) come out with at least one arc; the rest keep ±1.
+ */
+function buildArcs(ds: Dataset, ep: Episode, nav: (n: number) => EpisodeNav | null): ArcNav[] {
+  return ep.plotlineIds
+    .map(id => ds.plotlinesById.get(id))
+    .filter(isPresent)
+    .map((pl) => {
+      // Read back through `nav` rather than the plot line's own {no,title}
+      // copy, so a label always matches the page it opens.
+      //
+      // Cross-linking assigns an episode to a plot line by number *range*, so a
+      // line can legitimately name this episode without listing it — in which
+      // case there is no position to report and nothing to step through.
+      const pos = positionIn(pl.episodes.map(e => e.no), ep.no, nav)
+      if (!pos) return null
+      return {
+        id: pl.id,
+        name: pl.name,
+        // Ranking only; both are stripped below. The page reads a plot line's
+        // category off `plotlines`, which it already has.
+        seasonal: pl.category === 'festival',
+        gap: Math.min(
+          pos.prev ? ep.no - pos.prev.no : Infinity,
+          pos.next ? pos.next.no - ep.no : Infinity
+        ),
+        ...pos
+      }
+    })
+    .filter(isPresent)
+    // A one-episode line, or one this episode caps, has no step left in it.
+    .filter(a => a.prev || a.next)
+    // Story before season, then whichever line picks up soonest, then the more
+    // specific one. Ranking by size instead reads well but behaves badly: it
+    // prefers a 9-episode line two characters share across the whole run to the
+    // 148-episode romance that continues in the very next episode. Closing the
+    // gap is what "keep watching this" means — it halves the median step (20 →
+    // 13) and the p90 (149 → 77) against ranking by size.
+    //
+    // Uncapped, because this list is two things at once: the page shows the
+    // head of it as suggestions, but `usePlaylist` also answers a
+    // `?list=plotlines:…` out of it. Capping would leave a URL naming a real
+    // line the page can't step through without pulling the whole dataset.
+    // 1.70 arcs per episode on average keeps that cheap.
+    .sort((a, b) => Number(a.seasonal) - Number(b.seasonal) || a.gap - b.gap || a.total - b.total)
+    .map(({ seasonal, gap, ...arc }) => arc)
 }
 
 async function buildEpisodeView(no: number): Promise<EpisodeView | null> {
@@ -105,16 +217,14 @@ async function buildEpisodeView(no: number): Promise<EpisodeView | null> {
   const ep = ds.episodesByNo.get(no)
   if (!ep) return null
 
-  const nav = (n: number): EpisodeNav | null => {
-    const e = ds.episodesByNo.get(n)
-    return e ? { no: e.no, title: e.title } : null
-  }
+  const nav = episodeNav(ds)
   const ids = new Set([...ep.characterIds, ...ep.focus, ...ep.protagonists])
 
   return {
     ep,
     characters: [...ids].map(id => ds.charactersById.get(id)).filter(isPresent).map(toCharacterRef),
     plotlines: ep.plotlineIds.map(id => ds.plotlinesById.get(id)).filter(isPresent).map(toPlotlineRef),
+    arcs: buildArcs(ds, ep, nav),
     prev: nav(no - 1),
     next: nav(no + 1)
   }

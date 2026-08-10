@@ -12,6 +12,9 @@ const sorted = computed(() => [...(pl.value?.episodes || [])].sort((a, b) => a.n
 const milestones = computed(() => TAGS.filter(t => t.kind === 'milestone' && t.parentPlotlineId === id.value))
 const tagStyle = (tagId: string) => toneBadgeStyle(TAG_TONES.get(tagId))
 const membersById = computed(() => byId(view.value?.members ?? []))
+// 劇集順序 is literally a playlist, so opening one of its episodes hands the
+// line along as `?list=` and prev/next there keep following it.
+const list = computed(() => facetToken('plotlines', id.value))
 // A plot line lists members by name, and name === id on the roster. The leftover
 // tokens differ by category: 節日 lines list festival names (no entity to tone),
 // every other category lists families and departments — 熊氏一家, 接龍集團保安部 —
@@ -127,7 +130,7 @@ useSchemaOrg(computed(() => (pl.value ? [homeBreadcrumb(pl.value.name)] : [])))
           :key="e.no"
         >
           <ULink
-            :to="`/episode/${e.no}`"
+            :to="episodeLink(e.no, list)"
             class="flex gap-3 py-1.5 px-2 rounded hover:bg-elevated"
           >
             <span class="tabular-nums text-muted w-12 text-right shrink-0">{{ e.no }}</span>
