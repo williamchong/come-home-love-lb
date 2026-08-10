@@ -111,12 +111,12 @@ export function mytvsuperUrl(playId: number | undefined): string | undefined {
 }
 
 /**
- * Colour for the facet types with no per-entity tone. 角色, 家庭・機構 and the
- * tag kinds each colour their own entities (`utils/entityTone.ts`); these two
- * have nothing to vary by, so one hue stands for the whole concept.
+ * Colour for the facet types with no per-entity tone. 角色, 家庭・機構, 故事線 and
+ * the tag kinds each colour their own entities (`utils/entityTone.ts`); 編劇 has
+ * nothing to vary by — a writer belongs to no family and no arc — so one colour
+ * stands for the whole concept.
  */
 export const FACET_COLOR = {
-  plotline: 'primary',
   writer: 'neutral'
 } as const
 
@@ -124,6 +124,5 @@ export type FacetColor = typeof FACET_COLOR[keyof typeof FACET_COLOR]
 
 /** Text-colour class per colour, spelled out so Tailwind's scanner sees each one. */
 export const FACET_TEXT_CLASS = {
-  primary: 'text-primary',
   neutral: 'text-muted'
 } as const satisfies Record<FacetColor, string>

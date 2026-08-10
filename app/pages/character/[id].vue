@@ -99,8 +99,9 @@ useSchemaOrg(computed(() => (ch.value ? [homeBreadcrumb(ch.value.name)] : [])))
             :key="p.id"
             :to="`/plotline/${p.id}`"
             size="xs"
-            color="primary"
+            color="neutral"
             variant="soft"
+            :style="toneTextStyle(p.tone)"
           >
             {{ p.name }}（{{ p.episodeCount }}）
           </UButton>

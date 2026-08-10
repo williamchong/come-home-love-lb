@@ -1,4 +1,6 @@
 import type { Episode, Character, Plotline, Tag, Group, Meta, TagKind } from '~/types'
+import type { EntityTone } from '~/utils/entityTone'
+import { plotlineTone } from '~/utils/entityTone'
 import { CATEGORY_LABEL } from '~/types'
 
 export interface FacetOption {
@@ -23,12 +25,22 @@ export interface CoreDataset {
   }
 }
 
+/**
+ * A plot line carrying the tone it borrows from its cast (see `plotlineTone`).
+ * Resolved here because the hue needs the roster *and* the tag set, which only
+ * this tier holds — every render site downstream just reads `.tone`, so a lean
+ * detail-page payload and the live dataset can't colour the same badge apart.
+ */
+export interface TonedPlotline extends Plotline {
+  tone: EntityTone
+}
+
 /** Second tier: adds the character/plot-line/group data used by facets, presets and detail pages. */
 export interface Dataset extends CoreDataset {
   characters: Character[]
   charactersById: Map<string, Character>
-  plotlines: Plotline[]
-  plotlinesById: Map<string, Plotline>
+  plotlines: TonedPlotline[]
+  plotlinesById: Map<string, TonedPlotline>
   groups: Group[]
   facets: CoreDataset['facets'] & {
     characters: FacetOption[]
@@ -90,10 +102,11 @@ async function buildFull(): Promise<Dataset> {
     import('~/data/groups.json')
   ])
   const characters = c.default as unknown as Character[]
-  const plotlines = p.default as unknown as Plotline[]
   const groups = g.default as unknown as Group[]
 
   const charactersById = new Map(characters.map(x => [x.id, x]))
+  const plotlines: TonedPlotline[] = (p.default as unknown as Plotline[])
+    .map(pl => ({ ...pl, tone: plotlineTone(pl, charactersById, core.tags) }))
   const plotlinesById = new Map(plotlines.map(x => [x.id, x]))
 
   const plotCounts = countField(core.episodes, 'plotlineIds')

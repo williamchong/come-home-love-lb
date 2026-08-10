@@ -1,4 +1,4 @@
-import type { Character, Tag, TagKind } from '~/types'
+import type { Character, Plotline, Tag, TagKind } from '~/types'
 
 /**
  * Deterministic per-entity colours: every tag, character and family gets its
@@ -59,10 +59,12 @@ export function familyTone(groupLabel: string): EntityTone {
   return { hue, chroma: 0.13, dl: 0 }
 }
 
+/** ±7% lightness off an id, so entities sharing a hue still read apart. */
+const shift = (id: string) => Math.round((hash01(id) - 0.5) * 14)
+
 /** A character keeps the family hue; their own id nudges lightness only. */
 export function characterTone(ch: Pick<Character, 'id' | 'group'>): EntityTone {
-  const base = familyTone(ch.group ?? ch.id)
-  return { ...base, dl: Math.round((hash01(ch.id) - 0.5) * 14) }
+  return { ...familyTone(ch.group ?? ch.id), dl: shift(ch.id) }
 }
 
 /**
@@ -110,6 +112,44 @@ export function tagTones(tags: Tag[]): Map<string, EntityTone> {
   }
   tagToneCache.set(tags, map)
   return map
+}
+
+/**
+ * 節日 plot lines have no cast to borrow from, so they pair with the festival
+ * *tag* for the same feast — the tag labels are the shorter form of the line's
+ * name (聖誕節 ⊂ 平安夜／聖誕節), so a substring match is the whole rule.
+ */
+function festivalTone(name: string, tags: Tag[]): EntityTone {
+  const tag = tags.find(t => t.kind === 'festival' && name.includes(t.label))
+  const tone = tag && tagTones(tags).get(tag.id)
+  if (tone) return tone
+  // Feasts with no tag of their own (盂蘭節, 驚蟄, 兒童節…) still land inside the
+  // 節日 hue range, so the category reads as one family either way.
+  const [lo, hi] = TAG_RANGE.festival
+  return { hue: Math.round(lo + hash01(name) * (hi - lo)), chroma: 0.13, dl: 0 }
+}
+
+/**
+ * A plot line borrows the tone of whatever it is *about* rather than taking a
+ * slot in a range of its own: 熊樹根、熊若水 reads in the 熊家 hue its members
+ * carry on every card, and 中秋節 matches the 中秋節 tag beside it. Only the hue
+ * is inherited — the line's own id nudges lightness, so the several CPs inside
+ * one family differ yet rhyme, exactly as the family's members do.
+ *
+ * Members are listed lead-first, so the first token is the anchor. Outside 節日
+ * the leftover non-roster tokens are families and departments (熊氏一家,
+ * 接龍集團保安部) — the ones `familyKey` already folds onto their members' hue.
+ */
+export function plotlineTone(
+  pl: Pick<Plotline, 'id' | 'name' | 'category' | 'characters'>,
+  charactersById: ReadonlyMap<string, Pick<Character, 'id' | 'group'>>,
+  tags: Tag[]
+): EntityTone {
+  if (pl.category === 'festival') return festivalTone(pl.name, tags)
+  const anchor = pl.characters[0] ?? pl.name
+  const member = charactersById.get(anchor)
+  const base = member ? characterTone(member) : familyTone(familyKey(anchor))
+  return { ...base, dl: shift(pl.id) }
 }
 
 /**

@@ -1,5 +1,6 @@
-import type { Character, Episode, Meta, Plotline, PlotlineCategory } from '~/types'
-import type { Dataset } from './useDataset'
+import type { Character, Episode, Meta, PlotlineCategory } from '~/types'
+import type { EntityTone } from '~/utils/entityTone'
+import type { Dataset, TonedPlotline } from './useDataset'
 import { loadDataset } from './useDataset'
 
 /**
@@ -38,7 +39,12 @@ export interface PlotlineRef {
   name: string
   category: PlotlineCategory
   episodeCount: number
+  /** Carried rather than re-derived: only the full tier can resolve it. */
+  tone: EntityTone
 }
+
+/** What a plot-line badge needs — satisfied by `PlotlineRef` and `TonedPlotline` alike. */
+export type PlotlineBadge = Pick<PlotlineRef, 'id' | 'name' | 'tone'>
 
 /** Enough of an episode for the prev/next footer links. */
 export type EpisodeNav = Pick<Episode, 'no' | 'title'>
@@ -50,8 +56,8 @@ export type EpisodeCardData = Pick<Episode,
 const toCharacterRef = (ch: Character): CharacterRef =>
   ({ id: ch.id, name: ch.name, actor: ch.actor, group: ch.group })
 
-const toPlotlineRef = (pl: Plotline): PlotlineRef =>
-  ({ id: pl.id, name: pl.name, category: pl.category, episodeCount: pl.episodes.length })
+const toPlotlineRef = (pl: TonedPlotline): PlotlineRef =>
+  ({ id: pl.id, name: pl.name, category: pl.category, episodeCount: pl.episodes.length, tone: pl.tone })
 
 const toEpisodeCardData = (e: Episode): EpisodeCardData => ({
   no: e.no, date: e.date, title: e.title, tagIds: e.tagIds,
@@ -130,7 +136,7 @@ async function buildCharacterView(id: string): Promise<CharacterView | null> {
 }
 
 export interface PlotlineView {
-  pl: Plotline
+  pl: TonedPlotline
   /** Roster entries behind the member tokens, so `tokenTone` can colour them. */
   members: CharacterRef[]
 }
