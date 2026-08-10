@@ -68,7 +68,11 @@ useSchemaOrg(computed(() => (pl.value ? [homeBreadcrumb(pl.value.name)] : [])))
       >
         {{ pl.categoryLabel }}
       </UBadge>
-      <h1 class="text-2xl font-bold text-highlighted">
+      <!-- the line's own hue, the same one its badge carries on every card -->
+      <h1
+        class="text-2xl font-bold text-highlighted"
+        :style="toneTextStyle(pl.tone)"
+      >
         {{ pl.name }}
       </h1>
 

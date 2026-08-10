@@ -188,7 +188,8 @@ useSchemaOrg(computed(() => (ep.value
             v-for="p in plotlines"
             :key="p.id"
             :to="`/plotline/${p.id}`"
-            class="text-primary hover:underline"
+            class="hover:underline"
+            :style="toneTextStyle(p.tone)"
           >
             {{ p.name }} <span class="text-muted text-xs">· {{ CATEGORY_LABEL[p.category] }}（{{ p.episodeCount }} 集）</span>
           </ULink>

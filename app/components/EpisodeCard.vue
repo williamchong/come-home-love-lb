@@ -1,7 +1,5 @@
 <script setup lang="ts">
-import type { CharacterRef, EpisodeCardData } from '~/composables/useDetailView'
-import type { Plotline } from '~/types'
-import { FACET_COLOR } from '~/types'
+import type { CharacterRef, EpisodeCardData, PlotlineBadge } from '~/composables/useDetailView'
 
 // Every prop is narrowed to the fields the card actually reads, so a detail
 // page's lean payload (`useDetailView`) satisfies them just as the live
@@ -9,7 +7,7 @@ import { FACET_COLOR } from '~/types'
 const props = defineProps<{
   episode: EpisodeCardData
   /** From the full dataset tier — 所屬故事線 badges appear once it loads. */
-  plotlinesById?: ReadonlyMap<string, Pick<Plotline, 'id' | 'name'>> | null
+  plotlinesById?: ReadonlyMap<string, PlotlineBadge> | null
   /** From the full dataset tier — cast names take their family tone once it loads. */
   charactersById?: ReadonlyMap<string, CharacterRef> | null
 }>()
@@ -82,15 +80,18 @@ const castStyle = (token: string) => toneTextStyle(
           <UBadge
             v-for="p in shownPlotlines"
             :key="p.id"
-            :color="FACET_COLOR.plotline"
+            color="neutral"
             variant="soft"
             size="sm"
+            :style="toneBadgeStyle(p.tone)"
           >
             {{ p.name }}
           </UBadge>
+          <!-- the overflow badge stands for several lines at once, so it keeps
+               the neutral surface rather than picking one of their hues -->
           <UBadge
             v-if="morePlotlines"
-            :color="FACET_COLOR.plotline"
+            color="neutral"
             variant="soft"
             size="sm"
           >

@@ -58,11 +58,13 @@ const tagTone = (ds: Dataset, id: string) => tagTones(ds.tags).get(id)
 // both are what tokenTone resolves, so members and their family share a hue
 const charTone = (ds: Dataset, id: string) => tokenTone(id, ds.charactersById)
 const groupTone = (ds: Dataset, label: string) => tokenTone(label, ds.charactersById, true)
+// resolved with the roster in `useDataset`, so a line shares its cast's hue
+const plotTone = (ds: Dataset, id: string) => ds.plotlinesById.get(id)?.tone
 
 /** Menu order. Sections are display-only groupings: several map to the same `key`. */
 const SECTIONS: Section[] = [
   { key: 'characters', label: '角色', icon: 'i-lucide-user', options: ds => ds.facets.characters, tone: charTone },
-  { key: 'plotlines', label: '故事線 / CP', icon: 'i-lucide-heart', options: ds => ds.facets.plotlines, color: FACET_COLOR.plotline },
+  { key: 'plotlines', label: '故事線 / CP', icon: 'i-lucide-heart', options: ds => ds.facets.plotlines, tone: plotTone },
   { key: 'tags', label: '節日', icon: 'i-lucide-party-popper', options: ds => ds.facets.tagsByKind.festival, tone: tagTone },
   { key: 'tags', label: '客串', icon: 'i-lucide-star', options: ds => ds.facets.tagsByKind.cameo, tone: tagTone },
   { key: 'tags', label: '里程碑', icon: 'i-lucide-flag', options: ds => ds.facets.tagsByKind.milestone, tone: tagTone },
