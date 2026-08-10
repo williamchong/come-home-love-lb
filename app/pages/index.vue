@@ -163,7 +163,9 @@ useSchemaOrg([
       </div>
 
       <div class="grid lg:grid-cols-[300px_1fr] gap-6 items-start">
-        <aside class="hidden lg:block lg:sticky lg:top-(--ui-header-height)">
+        <!-- capped to the viewport so the panel's browse block scrolls inside
+             the sticky sidebar instead of running off the bottom of it -->
+        <aside class="hidden lg:flex lg:flex-col lg:sticky lg:top-(--ui-header-height) lg:max-h-[calc(100dvh-var(--ui-header-height))]">
           <FilterPanel
             v-if="panelProps"
             v-bind="panelProps"
@@ -243,7 +245,7 @@ useSchemaOrg([
             <FilterPanel
               v-if="panelProps"
               v-bind="panelProps"
-              :show-count="false"
+              variant="drawer"
               @reset="reset"
             />
             <LoadingState

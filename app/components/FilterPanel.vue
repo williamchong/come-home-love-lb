@@ -1,19 +1,34 @@
 <script setup lang="ts">
 import type { Dataset } from '~/composables/useDataset'
+import type { FacetItem } from '~/composables/useFacetIndex'
 import { FACET_TEXT_CLASS } from '~/types'
 
+// The two mount sites differ in what the surrounding chrome already provides:
+// the drawer has its own footer count and its own height budget, so it drops
+// the count line and the browse block. One variant beats a boolean per part.
 const props = withDefaults(
-  defineProps<{ ds: Dataset, activeCount: number, resultCount: number, showCount?: boolean }>(),
-  { showCount: true }
+  defineProps<{ ds: Dataset, activeCount: number, resultCount: number, variant?: 'sidebar' | 'drawer' }>(),
+  { variant: 'sidebar' }
 )
+const isSidebar = computed(() => props.variant === 'sidebar')
 const emit = defineEmits<{ reset: [] }>()
 
 const state = useFilterState()
 
 // bound so the index can list only the top options per section until you type
 const facetSearch = ref('')
-const { groups, byToken } = useFacetIndex(() => props.ds, facetSearch)
+const { sections, groups, byToken } = useFacetIndex(() => props.ds, facetSearch)
 const tokens = useFacetTokens(state)
+
+/**
+ * A toned entity keeps its neutral surface — an inline background would beat the
+ * button's hover class — and carries its hue in text + icon instead. Both chip
+ * rows below read the pair from here so they can't drift apart.
+ */
+const facetVisual = (item?: FacetItem) => ({
+  color: item?.color ?? 'neutral',
+  style: toneTextStyle(item?.tone)
+})
 
 // active selections, as removable chips. A token from a stale shared link won't
 // be in the index — show its raw value rather than dropping it from the filter.
@@ -23,14 +38,33 @@ const chips = computed(() => tokens.value.map((token) => {
     token,
     label: item?.label ?? parseToken(token)?.value ?? token,
     icon: item?.icon ?? 'i-lucide-tag',
-    // a toned entity keeps its neutral surface — an inline background would
-    // beat the button's hover class — and carries its hue in text + icon
-    color: item?.color ?? 'neutral',
-    style: toneTextStyle(item?.tone)
+    ...facetVisual(item)
   }
 }))
 function removeChip(token: string) {
   tokens.value = tokens.value.filter(t => t !== token)
+}
+
+/**
+ * The controls above are deliberately compact, which leaves the desktop sidebar
+ * mostly empty — and a lone 新增篩選 box says nothing about *what* it searches.
+ * The browse block spends that space on the head of every facet type, so the
+ * available axes are visible and one click away. Options are count-sorted
+ * upstream, so the head of each list is also the part worth offering; the cap is
+ * tighter than the menu's because chips wrap barely two to a sidebar row.
+ */
+const BROWSE_PER_SECTION = 6
+const browse = computed(() => {
+  const chosen = new Set(tokens.value)
+  return sections.value
+    // already-picked options live in the chip row above; drop them here rather
+    // than render the same filter twice in two different states
+    .map(s => ({ ...s, items: s.items.filter(i => !chosen.has(i.token)).slice(0, BROWSE_PER_SECTION) }))
+    .filter(s => s.items.length)
+})
+// browse only ever offers tokens that aren't selected, so this is an append
+function addToken(token: string) {
+  tokens.value = [...tokens.value, token]
 }
 
 // USelectMenu uses undefined for "no selection"; the filter state uses null
@@ -50,10 +84,12 @@ const years = computed(() => props.ds.facets.years.map(y => Number(y.value)))
 </script>
 
 <template>
-  <div class="space-y-3">
+  <!-- flex column so the browse block below can absorb (and scroll) whatever
+       height is left over in the sticky sidebar -->
+  <div class="flex flex-col gap-3 min-h-0">
     <div class="flex items-center justify-between">
       <div
-        v-if="showCount"
+        v-if="isSidebar"
         class="text-sm"
       >
         <span class="font-semibold text-highlighted">{{ resultCount.toLocaleString() }}</span>
@@ -159,6 +195,45 @@ const years = computed(() => props.ds.facets.years.map(y => Number(y.value)))
         size="sm"
         class="flex-1 min-w-0"
       />
+    </div>
+
+    <!-- Memoised on `browse` — its own dependency set. Without this the ~40
+         buttons re-render on every keystroke in the title search above, since
+         a slotted child component is patched unconditionally. `-mr-2 pr-2`
+         parks the scrollbar in the grid gutter so chips don't reflow when it
+         appears. -->
+    <div
+      v-if="isSidebar && browse.length"
+      v-memo="[browse]"
+      class="flex-1 min-h-0 overflow-y-auto border-t border-default pt-3 -mr-2 pr-2 flex flex-col gap-3"
+    >
+      <div
+        v-for="section in browse"
+        :key="section.label"
+      >
+        <div class="flex items-center gap-1.5 mb-1.5 text-xs font-medium text-muted">
+          <UIcon
+            :name="section.icon"
+            class="size-3.5 shrink-0"
+          />
+          {{ section.label }}
+        </div>
+        <div class="flex flex-wrap gap-1">
+          <UButton
+            v-for="item in section.items"
+            :key="item.token"
+            size="xs"
+            variant="outline"
+            class="max-w-full"
+            v-bind="facetVisual(item)"
+            :ui="{ label: 'truncate' }"
+            :aria-label="`新增篩選：${item.label}`"
+            @click="addToken(item.token)"
+          >
+            {{ item.label }}
+          </UButton>
+        </div>
+      </div>
     </div>
   </div>
 </template>
