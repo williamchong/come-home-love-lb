@@ -1,19 +1,21 @@
 <script setup lang="ts">
-import type { CoreDataset } from '~/composables/useDataset'
-import type { Character, Episode, Plotline } from '~/types'
+import type { CharacterRef, EpisodeCardData } from '~/composables/useDetailView'
+import type { Plotline } from '~/types'
 import { FACET_COLOR } from '~/types'
 
+// Every prop is narrowed to the fields the card actually reads, so a detail
+// page's lean payload (`useDetailView`) satisfies them just as the live
+// dataset tiers do.
 const props = defineProps<{
-  episode: Episode
-  ds: CoreDataset
+  episode: EpisodeCardData
   /** From the full dataset tier — 所屬故事線 badges appear once it loads. */
-  plotlinesById?: Map<string, Plotline> | null
+  plotlinesById?: ReadonlyMap<string, Pick<Plotline, 'id' | 'name'>> | null
   /** From the full dataset tier — cast names take their family tone once it loads. */
-  charactersById?: Map<string, Character> | null
+  charactersById?: ReadonlyMap<string, CharacterRef> | null
 }>()
 
-const tags = computed(() => props.episode.tagIds.map(id => props.ds.tagsById.get(id)).filter(isPresent))
-const tones = computed(() => tagTones(props.ds.tags))
+const tags = computed(() => props.episode.tagIds.map(id => TAGS_BY_ID.get(id)).filter(isPresent))
+const tagStyle = (id: string) => toneBadgeStyle(TAG_TONES.get(id))
 
 // keep cards compact: an episode can sit in up to 11 plot lines. Festival
 // plot lines share their name with the episode's festival tag — showing both
@@ -100,7 +102,7 @@ const castStyle = (token: string) => toneTextStyle(
             color="neutral"
             variant="soft"
             size="sm"
-            :style="toneBadgeStyle(tones.get(t.id))"
+            :style="tagStyle(t.id)"
           >
             {{ t.label }}
           </UBadge>

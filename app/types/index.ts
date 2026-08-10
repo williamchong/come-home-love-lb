@@ -77,6 +77,19 @@ export interface Meta {
   generatedFrom: string[]
 }
 
+/**
+ * Site identity, shared by the app and by nuxt.config's `site` block so the two
+ * can't drift. `SITE_LOCALE` is both the <html lang> and what schema.org reads
+ * for inLanguage.
+ */
+export const SERIES_NAME = '愛·回家之開心速遞'
+export const SITE_TITLE = `${SERIES_NAME} 劇集導航`
+export const SITE_DESCRIPTION = `篩選 2800+ 集《${SERIES_NAME}》，依角色、故事線、CP、節日、客串與里程碑快速找到想重溫的劇集。`
+export const SITE_LOCALE = 'zh-Hant-HK'
+
+/** Detail-page title: the page's own subject, then the series it belongs to. */
+export const pageTitle = (subject: string) => `${subject}｜${SERIES_NAME}`
+
 /** Short Chinese label per plot-line category (the long form lives on Plotline.categoryLabel). */
 export const CATEGORY_LABEL: Record<PlotlineCategory, string> = {
   family: '親情',

@@ -1,25 +1,40 @@
 <script setup lang="ts">
+import { SERIES_NAME, pageTitle } from '~/types'
+
 const route = useRoute()
 const id = computed(() => String(route.params.id))
 
-const { data: ds } = useDatasetAsync()
+const { data: view, status } = await usePlotlineViewAsync(id)
 
-const pl = computed(() => ds.value?.plotlinesById.get(id.value) || null)
+const pl = computed(() => view.value?.pl ?? null)
 const sorted = computed(() => [...(pl.value?.episodes || [])].sort((a, b) => a.no - b.no))
 // milestones that live inside this plot line
-const milestones = computed(() => (ds.value?.tags || []).filter(t => t.kind === 'milestone' && t.parentPlotlineId === id.value))
-const tones = computed(() => tagTones(ds.value?.tags ?? []))
+const milestones = computed(() => TAGS.filter(t => t.kind === 'milestone' && t.parentPlotlineId === id.value))
+const tagStyle = (tagId: string) => toneBadgeStyle(TAG_TONES.get(tagId))
+const membersById = computed(() => byId(view.value?.members ?? []))
 // A plot line lists members by name, and name === id on the roster. The leftover
 // tokens differ by category: 節日 lines list festival names (no entity to tone),
 // every other category lists families and departments — 熊氏一家, 接龍集團保安部 —
 // which resolve to the same hue their members carry.
 const memberStyle = (name: string) => toneTextStyle(
-  ds.value && tokenTone(name, ds.value.charactersById, pl.value?.category !== 'festival')
+  tokenTone(name, membersById.value, pl.value?.category !== 'festival')
 )
 
-watchEffect(() => {
-  if (pl.value) useSeoMeta({ title: `${pl.value.name}｜愛·回家之開心速遞` })
+const title = computed(() => (pl.value ? pageTitle(pl.value.name) : '找不到此故事線'))
+
+const description = computed(() => {
+  const p = pl.value
+  if (!p) return undefined
+  return sentences([
+    `《${SERIES_NAME}》${p.categoryLabel}「${p.name}」，共 ${p.episodes.length} 集`,
+    p.characters.length > 0 && `涉及${p.characters.join('、')}`,
+    p.summary
+  ])
 })
+
+usePageSeo(title, description)
+
+useSchemaOrg(computed(() => (pl.value ? [homeBreadcrumb(pl.value.name)] : [])))
 </script>
 
 <template>
@@ -34,12 +49,11 @@ watchEffect(() => {
       返回劇集導航
     </UButton>
 
-    <div
-      v-if="!ds"
-      class="text-muted py-20 text-center"
-    >
-      載入中…
-    </div>
+    <LoadingState
+      v-if="status === 'pending'"
+      text="載入中…"
+      class="py-20 justify-center"
+    />
     <div
       v-else-if="!pl"
       class="text-muted py-20 text-center"
@@ -92,7 +106,7 @@ watchEffect(() => {
           color="neutral"
           variant="soft"
           icon="i-lucide-flag"
-          :style="toneBadgeStyle(tones.get(m.id))"
+          :style="tagStyle(m.id)"
         >
           {{ m.label }}（{{ m.episodeNos.join('、') }}）
         </UBadge>

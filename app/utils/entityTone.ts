@@ -71,7 +71,7 @@ export function characterTone(ch: Pick<Character, 'id' | 'group'>): EntityTone {
  * `isGroup` for tokens the episode lists in `groupIds`; anything else unknown to
  * the roster (a one-off crowd token) stays untoned.
  */
-export function tokenTone(token: string, charactersById: Map<string, Character>, isGroup = false): EntityTone | undefined {
+export function tokenTone(token: string, charactersById: ReadonlyMap<string, Pick<Character, 'id' | 'group'>>, isGroup = false): EntityTone | undefined {
   const ch = charactersById.get(token)
   if (ch) return characterTone(ch)
   return isGroup ? familyTone(familyKey(token)) : undefined

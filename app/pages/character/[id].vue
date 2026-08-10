@@ -1,25 +1,42 @@
 <script setup lang="ts">
+import { SERIES_NAME, pageTitle } from '~/types'
+
 const route = useRoute()
 const id = computed(() => decodeURIComponent(String(route.params.id)))
 
-const { data: ds } = useDatasetAsync()
+const { data: view, status } = await useCharacterViewAsync(id)
 
-const ch = computed(() => ds.value?.charactersById.get(id.value) || null)
-const episodes = computed(() => {
-  if (!ds.value || !ch.value) return []
-  return (ch.value.episodeNos || []).map(n => ds.value!.episodesByNo.get(n)).filter(isPresent)
-})
-const plotlines = computed(() => {
-  const name = ch.value?.name
-  if (!ds.value || !name) return []
-  return ds.value.plotlines.filter(p => p.characters.includes(name))
-})
+const ch = computed(() => view.value?.ch ?? null)
+const episodes = computed(() => view.value?.episodes ?? [])
+const plotlines = computed(() => view.value?.plotlines ?? [])
+const cardPlotlinesById = computed(() => byId(view.value?.cardPlotlines ?? []))
+const cardCharactersById = computed(() => byId(view.value?.cardCharacters ?? []))
 // the subject's own tone, the same one their name carries on every card
 const tone = computed(() => ch.value && characterTone(ch.value))
 
-watchEffect(() => {
-  if (ch.value) useSeoMeta({ title: `${ch.value.name}｜愛·回家之開心速遞` })
+const title = computed(() => (ch.value ? pageTitle(ch.value.name) : '找不到此角色'))
+
+const description = computed(() => {
+  const c = ch.value
+  if (!c) return undefined
+  const who = [c.actor ? `${c.name}（${c.actor} 飾）` : c.name, c.group].filter(Boolean).join('，')
+  return sentences([
+    `《${SERIES_NAME}》${who}`,
+    c.bio,
+    episodes.value.length > 0 && `共 ${episodes.value.length} 集以其為主線`
+  ])
 })
+
+usePageSeo(title, description)
+
+// Roster footnotes are still served, so their links resolve, but kept out of
+// the index. nuxt.config filters the sitemap on the very same predicate.
+// Spelled as a directive string, not `{ index: false }` — the object form drops
+// every false-valued key, so it can express `index` but never `noindex`.
+const indexable = computed(() => Boolean(ch.value) && isIndexableCharacter(ch.value!, plotlines.value.length > 0))
+useRobotsRule(computed(() => (indexable.value ? 'index, follow' : 'noindex, follow')))
+
+useSchemaOrg(computed(() => (ch.value ? [homeBreadcrumb(ch.value.name)] : [])))
 </script>
 
 <template>
@@ -34,12 +51,11 @@ watchEffect(() => {
       返回劇集導航
     </UButton>
 
-    <div
-      v-if="!ds"
-      class="text-muted py-20 text-center"
-    >
-      載入中…
-    </div>
+    <LoadingState
+      v-if="status === 'pending'"
+      text="載入中…"
+      class="py-20 justify-center"
+    />
     <div
       v-else-if="!ch"
       class="text-muted py-20 text-center"
@@ -86,7 +102,7 @@ watchEffect(() => {
             color="primary"
             variant="soft"
           >
-            {{ p.name }}（{{ p.episodes.length }}）
+            {{ p.name }}（{{ p.episodeCount }}）
           </UButton>
         </div>
       </section>
@@ -109,9 +125,8 @@ watchEffect(() => {
             v-for="ep in episodes"
             :key="ep.no"
             :episode="ep"
-            :ds="ds"
-            :plotlines-by-id="ds.plotlinesById"
-            :characters-by-id="ds.charactersById"
+            :plotlines-by-id="cardPlotlinesById"
+            :characters-by-id="cardCharactersById"
           />
         </div>
       </section>
