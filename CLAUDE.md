@@ -11,7 +11,7 @@ A static, backend-free SPA cataloguing every episode of the TVB sitcom 《愛·�
 ```bash
 pnpm install
 pnpm dev          # dev server at http://localhost:3000
-pnpm build        # static output → .output/public (Nitro github_pages preset)
+pnpm build        # static output → .output/public (Nitro github_pages preset); prerenders ~4,300 routes, several minutes
 pnpm preview      # serve the built output
 pnpm lint         # eslint . (scripts/** and app/data/** are ignored)
 pnpm typecheck    # nuxt typecheck (vue-tsc)
@@ -43,8 +43,21 @@ Two independent halves. Know which one you're editing.
 - `composables/useDataset.ts` — **tiered loading**. `CoreDataset` (episodes + tags + meta + their facets) loads first so the list renders quickly; `Dataset` extends it with characters/plotlines/groups + their facets for the facet panel, presets, and detail pages. Both are cached in module-level promises (`loadCore`/`loadDataset`), consumed via `useCoreDatasetAsync`/`useDatasetAsync` (`composables/useDatasetAsync.ts`, `{ lazy: true, server: false }`).
 - `composables/useEpisodeFilter.ts` — the filter engine. **Facets combine with AND across types, OR within a type.** Filter state is app-wide shared `useState` and is **mirrored to the URL query** (so filtered views are shareable); it hydrates from the query once on load. Free-text `q` matches episode title + protagonist tokens.
 - `composables/useFacetIndex.ts` — flattens **every** facet type (角色 / 故事線 / 節日 / 客串 / 里程碑 / 家庭・機構 / 編劇) into one grouped, searchable `USelectMenu` item list, so the panel has a single 新增篩選 combobox instead of a dropdown per type. Each option is modelled as a `key:value` token; `useFacetTokens` is a writable computed that projects the five separate `FilterState` arrays into one flat token list and back, which is why `useEpisodeFilter` and the URL query format are untouched by the merged UI.
+- `composables/useDetailView.ts` — **lean per-page projections**, and the reason prerendering is affordable. Nuxt serialises every `useAsyncData` result into that route's payload, so handing a detail page the whole `Dataset` would park ~1.8 MB beside each of 4,300 static pages. Each builder returns only the records the page renders (`CharacterRef`/`PlotlineRef`/`EpisodeCardData` rather than full entities), which lands an episode payload at ~1.2 KB and the whole site's payloads at 5.5 MB. Unlike the tiers above these run on the server too (`lazy` on the client only), so prerendered HTML carries real content while client-side navigation still paints a loading state instead of blocking on the dataset. `useHomeSeedAsync` does the same for the index page's first 48 cards.
 - `types/index.ts` — the single source of truth for the data-model shapes the JSON conforms to (`Episode`, `Character`, `Plotline`, `Tag`, `Group`, `Meta`) plus display constants (`CATEGORY_LABEL`, `TAG_COLOR`).
 - `pages/` — `index.vue` (list + filter panel) and dynamic detail routes `episode/[no]`, `character/[id]`, `plotline/[id]`. `FilterPanel` is mounted twice — a desktop sidebar and a mobile `UDrawer` — both bound to the same shared state; sorting lives in `SortSelect` next to the results rather than in the panel.
+
+### SEO (`@nuxtjs/seo`)
+
+GitHub Pages serves an unknown path as `404.html` **with an HTTP 404 status**, so anything not prerendered is invisible to crawlers. `siteRoutes()` in `nuxt.config.ts` therefore enumerates every episode / character / plot line straight out of `app/data/` — Nitro's `crawlLinks` can't find them, because a crawl starting at `/` only sees a loading shell.
+
+Things worth knowing before changing any of it:
+- **`site.url` is the origin only** (`https://williamchong.github.io`). nuxt-site-config joins it with `app.baseURL`; spelling the repo path in both doubles it. CI passes it via `NUXT_SITE_URL`.
+- **Prerender routes live under `$production`.** At the top level their 4,300 entries get inlined into Nuxt's virtual route-rules module and Rollup blows its parser stack on every `pnpm dev`.
+- **Sitemap URLs are passed decoded**, because `@nuxtjs/sitemap` escapes each `<loc>` itself; handing it encoded paths yields `%25E4%25B8%2581…`.
+- **`app/utils/indexable.ts` is shared on purpose.** nuxt.config uses it to pick which characters the sitemap advertises; `character/[id].vue` uses the same predicate for `useRobotsRule()`. ~616 roster footnotes are served but `noindex, follow`, so a page the sitemap promotes can never be one that refuses indexing. Pass `useRobotsRule` a directive **string**: its object form drops false-valued keys, so `{ index: false }` silently emits nothing rather than `noindex`.
+- **`app/utils/tags.ts` imports the tag set statically** rather than routing it through each view. `tagTones` spaces hues across all 17 tags, so every page showing one badge needs them all — carried in payloads that cost ~16 MB across the site and set a 4 KB floor under every page.
+- `nuxt-og-image` and `nuxt-link-checker` are **off**: per-route OG images would mean 4,300 satori renders with a font that has no CJK glyphs, and link-checking every prerendered page adds minutes to CI.
 
 ### The curated overlay (`data/overlay.json`)
 
@@ -62,5 +75,5 @@ Character search aliases are assembled in `build-data.mjs` (`attachAliases`) fro
 
 - Package manager is **pnpm** (`packageManager` pinned). Node 22 in CI.
 - ESLint uses Nuxt's flat config with stylistic rules: **no comma dangle**, 1tbs brace style. Match the terse, comment-rich style of the existing scripts.
-- GitHub Pages serves under `/<repo>/`; the deploy workflow sets `NUXT_APP_BASE_URL` to the Pages base path (with trailing slash). Locally it defaults to `/`.
+- GitHub Pages serves under `/<repo>/`; the deploy workflow sets `NUXT_APP_BASE_URL` to the Pages base path (with trailing slash) and `NUXT_SITE_URL` to the Pages origin. Locally they default to `/` and the production origin, so a local build's canonicals omit the repo path — expected, not a bug.
 - This is a non-official fan project; episode/character data is sourced from the wikis and © their rights holders.

@@ -1,26 +1,36 @@
 <script setup>
+import { SITE_DESCRIPTION, SITE_LOCALE, SITE_TITLE } from '~/types'
+
+// GitHub Pages project sites serve under /<repo>/, and useHead does not apply
+// app.baseURL for us — a bare '/favicon.ico' resolves to the domain root. Nuxt
+// normalises baseURL to a trailing slash, so this concatenation is safe.
+const favicon = `${useRuntimeConfig().app.baseURL}favicon.ico`
+
 useHead({
   meta: [
     { name: 'viewport', content: 'width=device-width, initial-scale=1' }
   ],
   link: [
-    { rel: 'icon', href: '/favicon.ico' }
+    { rel: 'icon', href: favicon }
   ],
   htmlAttrs: {
-    lang: 'zh-Hant'
+    lang: SITE_LOCALE
   }
 })
 
-const title = '愛·回家之開心速遞 劇集導航'
-const description = '篩選 2800+ 集《愛·回家之開心速遞》，依角色、故事線、CP、節日、客串與里程碑快速找到想重溫的劇集。'
-
+// Site-level fallbacks; detail pages override them through `usePageSeo`.
 useSeoMeta({
-  title,
-  titleTemplate: t => (t && t !== title ? `${t}` : title),
-  description,
-  ogTitle: title,
-  ogDescription: description,
-  twitterCard: 'summary_large_image'
+  title: SITE_TITLE,
+  titleTemplate: t => (t && t !== SITE_TITLE ? `${t}` : SITE_TITLE),
+  description: SITE_DESCRIPTION,
+  ogTitle: SITE_TITLE,
+  ogDescription: SITE_DESCRIPTION,
+  ogType: 'website',
+  ogSiteName: SITE_TITLE,
+  ogLocale: 'zh_HK',
+  // No card artwork ships with the site yet, and 'summary_large_image' without
+  // an og:image renders as a bare link. Swap to the large card once one exists.
+  twitterCard: 'summary'
 })
 </script>
 

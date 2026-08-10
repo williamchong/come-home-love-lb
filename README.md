@@ -22,6 +22,12 @@ app/                        → Nuxt app reading app/data/*.json
 
 `app/data/*.json` (generated) and `data/overlay.json` (curated) are committed, so a normal `pnpm build` needs no network access.
 
+### Search engines
+
+Although the app filters client-side, it is **not** shipped as a bare SPA shell. `pnpm build` prerenders every episode, character and plot-line page to its own static HTML file — around 4,300 of them — each with its own title, description, canonical URL and schema.org data, alongside a `sitemap.xml`, courtesy of [`@nuxtjs/seo`](https://nuxt.com/modules/seo). This matters on GitHub Pages specifically: it answers any path it has no file for with `404.html` *and an HTTP 404 status*, so an un-prerendered deep link is unindexable no matter what the JavaScript later renders.
+
+No `robots.txt` is generated for the Pages deployment, because a project site lives under `/<repo>/` and crawlers only ever read `https://<user>.github.io/robots.txt` — a file this repo doesn't own. **Submit `sitemap.xml` through Google Search Console** rather than expecting it to be discovered.
+
 ## Refreshing the data
 
 Run locally whenever the wiki sources update (e.g. new episodes air):

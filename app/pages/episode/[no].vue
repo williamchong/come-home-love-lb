@@ -1,27 +1,63 @@
 <script setup lang="ts">
-import { CATEGORY_LABEL, mytvsuperUrl } from '~/types'
+import { CATEGORY_LABEL, SERIES_NAME, SITE_LOCALE, mytvsuperUrl, pageTitle } from '~/types'
 
 const route = useRoute()
 const no = computed(() => Number(route.params.no))
 
-const { data: ds } = useDatasetAsync()
+const { data: view, status } = await useEpisodeViewAsync(no)
 
-const ep = computed(() => ds.value?.episodesByNo.get(no.value) || null)
-const characters = computed(() => (ep.value?.characterIds || []).map(id => ds.value?.charactersById.get(id)).filter(isPresent))
-const plotlines = computed(() => (ep.value?.plotlineIds || []).map(id => ds.value?.plotlinesById.get(id)).filter(isPresent))
-const tags = computed(() => (ep.value?.tagIds || []).map(id => ds.value?.tagsById.get(id)).filter(isPresent))
+const ep = computed(() => view.value?.ep ?? null)
+const charactersById = computed(() => byId(view.value?.characters ?? []))
+const characters = computed(() => (ep.value?.characterIds ?? []).map(id => charactersById.value.get(id)).filter(isPresent))
+const plotlines = computed(() => view.value?.plotlines ?? [])
+const tags = computed(() => (ep.value?.tagIds ?? []).map(id => TAGS_BY_ID.get(id)).filter(isPresent))
 const watchUrl = computed(() => mytvsuperUrl(ep.value?.playId))
-const tones = computed(() => tagTones(ds.value?.tags ?? []))
+const tagStyle = (id: string) => toneBadgeStyle(TAG_TONES.get(id))
 // 主線角色 are raw 故事主人翁 tokens — usually a character, occasionally a group
 const focusStyle = (token: string) => toneBadgeStyle(
-  ds.value && tokenTone(token, ds.value.charactersById, ep.value?.groupIds.includes(token))
+  tokenTone(token, charactersById.value, ep.value?.groupIds.includes(token))
 )
-const prev = computed(() => ds.value?.episodesByNo.get(no.value - 1))
-const next = computed(() => ds.value?.episodesByNo.get(no.value + 1))
+const prev = computed(() => view.value?.prev ?? null)
+const next = computed(() => view.value?.next ?? null)
 
-watchEffect(() => {
-  if (ep.value) useSeoMeta({ title: `第${ep.value.no}集 ${ep.value.title}｜愛·回家之開心速遞` })
+const title = computed(() => (ep.value ? pageTitle(`第${ep.value.no}集 ${ep.value.title}`) : '找不到此劇集'))
+
+// A snippet that can stand on its own: what aired, when, by whom, about whom.
+// The title follows a colon rather than sitting in 「」, because plenty of
+// titles carry their own quote marks (「琴」的挑戰) and nesting them reads badly.
+const description = computed(() => {
+  const e = ep.value
+  if (!e) return undefined
+  const facts = [`${e.date}首播`]
+  if (e.writers.length) facts.push(`編劇${e.writers.join('、')}`)
+  return sentences([
+    `《${SERIES_NAME}》第${e.no}集：${e.title}`,
+    facts.join('，'),
+    e.protagonists.length > 0 && `主線角色：${e.protagonists.join('、')}`,
+    plotlines.value.length > 0 && `所屬故事線：${plotlines.value.map(p => p.name).join('、')}`
+  ])
 })
+
+usePageSeo(title, description)
+
+/** 2019年1月24日 → 2019-01-24, the only date form schema.org accepts. */
+function isoAirDate(date: string): string | undefined {
+  const m = date.match(/(\d{4})年(\d{1,2})月(\d{1,2})日/)
+  return m ? `${m[1]}-${m[2]!.padStart(2, '0')}-${m[3]!.padStart(2, '0')}` : undefined
+}
+
+useSchemaOrg(computed(() => (ep.value
+  ? [
+      homeBreadcrumb(`第${ep.value.no}集 ${ep.value.title}`),
+      defineTVEpisode({
+        name: ep.value.title,
+        episodeNumber: ep.value.no,
+        datePublished: isoAirDate(ep.value.date),
+        inLanguage: SITE_LOCALE,
+        partOfSeries: defineTVSeries({ name: SERIES_NAME })
+      })
+    ]
+  : [])))
 </script>
 
 <template>
@@ -36,12 +72,11 @@ watchEffect(() => {
       返回劇集導航
     </UButton>
 
-    <div
-      v-if="!ds"
-      class="text-muted py-20 text-center"
-    >
-      載入中…
-    </div>
+    <LoadingState
+      v-if="status === 'pending'"
+      text="載入中…"
+      class="py-20 justify-center"
+    />
     <div
       v-else-if="!ep"
       class="text-muted py-20 text-center"
@@ -83,7 +118,7 @@ watchEffect(() => {
           <UBadge
             color="neutral"
             variant="soft"
-            :style="toneBadgeStyle(tones.get(t.id))"
+            :style="tagStyle(t.id)"
           >
             {{ t.label }}
           </UBadge>
@@ -155,7 +190,7 @@ watchEffect(() => {
             :to="`/plotline/${p.id}`"
             class="text-primary hover:underline"
           >
-            {{ p.name }} <span class="text-muted text-xs">· {{ CATEGORY_LABEL[p.category] }}（{{ p.episodes.length }} 集）</span>
+            {{ p.name }} <span class="text-muted text-xs">· {{ CATEGORY_LABEL[p.category] }}（{{ p.episodeCount }} 集）</span>
           </ULink>
         </div>
       </section>

@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { SERIES_NAME, SITE_LOCALE } from '~/types'
+
 // Two tiers: `core` (episodes/tags/meta) paints the list fast; `full` (adds
 // characters/plot lines/groups) loads in the background for presets + filters.
 const { data: core } = useCoreDatasetAsync()
@@ -13,6 +15,14 @@ watch(filtered, () => {
   page.value = 1
 })
 const paged = computed(() => filtered.value.slice((page.value - 1) * PAGE, page.value * PAGE))
+
+// Both tiers are client-only, so the prerendered homepage would otherwise ship
+// a spinner as its entire body. The seed is one page of episodes rendered at
+// build time — real text and 48 crawlable links — and it hands over to the
+// filterable list the moment `core` resolves.
+const { data: seed } = await useHomeSeedAsync(PAGE)
+const seedPlotlinesById = computed(() => byId(seed.value?.cardPlotlines ?? []))
+const seedCharactersById = computed(() => byId(seed.value?.cardCharacters ?? []))
 
 // mobile filter drawer
 const drawerOpen = ref(false)
@@ -60,10 +70,17 @@ const presets = computed(() => {
   return out
 })
 
-useSeoMeta({
-  title: '愛·回家之開心速遞 劇集導航',
-  description: '篩選 2800+ 集《愛·回家之開心速遞》，依角色、故事線、CP、節日、客串與里程碑快速找到想重溫的劇集。'
-})
+// Title and description come from app.vue, which already carries the
+// site-level pair this page would otherwise repeat verbatim.
+useSchemaOrg([
+  defineTVSeries({
+    name: SERIES_NAME,
+    alternateName: 'Come Home Love: Lo and Behold',
+    inLanguage: SITE_LOCALE,
+    numberOfEpisodes: seed.value?.meta.total,
+    genre: ['Sitcom', 'Comedy']
+  })
+])
 </script>
 
 <template>
@@ -73,7 +90,7 @@ useSeoMeta({
         愛·回家之開心速遞 · 劇集導航
       </h1>
       <p class="text-muted mt-1 text-sm hidden sm:block">
-        篩選 {{ core?.meta.total?.toLocaleString() ?? '2800+' }} 集，依角色、故事線、CP、節日、客串與里程碑找回想重溫的劇情。
+        篩選 {{ seed?.meta.total.toLocaleString() ?? '2800+' }} 集，依角色、故事線、CP、節日、客串與里程碑找回想重溫的劇情。
       </p>
 
       <form
@@ -106,11 +123,20 @@ useSeoMeta({
       </form>
     </div>
 
-    <LoadingState
+    <!-- Prerendered seed — see `useHomeSeedAsync` above. Mirrors the real grid
+         so handing over to the filterable list doesn't shift the layout. -->
+    <div
       v-if="!core"
-      text="載入劇集資料中…"
-      class="py-20 justify-center"
-    />
+      class="grid sm:grid-cols-2 gap-3"
+    >
+      <EpisodeCard
+        v-for="ep in seed?.episodes ?? []"
+        :key="ep.no"
+        :episode="ep"
+        :plotlines-by-id="seedPlotlinesById"
+        :characters-by-id="seedCharactersById"
+      />
+    </div>
 
     <template v-else>
       <!-- mobile: sticky filter bar (desktop uses the sidebar instead) -->
@@ -188,7 +214,6 @@ useSeoMeta({
               v-for="ep in paged"
               :key="ep.no"
               :episode="ep"
-              :ds="core"
               :plotlines-by-id="full?.plotlinesById"
               :characters-by-id="full?.charactersById"
             />
