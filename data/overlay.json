@@ -56,10 +56,11 @@
   "featured": [
     { "kind": "plotline", "ref": "龔水戀", "emoji": "💍" },
     { "kind": "plotline", "ref": "仁菲戀", "emoji": "☕" },
-    { "kind": "tag", "ref": "龔水結婚", "emoji": "💒" },
     { "kind": "character", "ref": "崔李悟璋", "emoji": "👵" },
     { "kind": "plotline", "ref": "香港島大學", "emoji": "🏫" },
-    { "kind": "tag", "ref": "歐陽bobby", "emoji": "🎭" },
-    { "kind": "tag", "ref": "聖誕節", "emoji": "🎄" }
+    { "kind": "plotline", "ref": "安Bon戀", "emoji": "💘" },
+    { "kind": "plotline", "ref": "雙大線", "emoji": "⚔️" },
+    { "kind": "plotline", "ref": "蓮輝戀", "emoji": "🌹" },
+    { "kind": "character", "ref": "譚道德", "emoji": "🎓" }
   ]
 }
