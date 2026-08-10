@@ -10,7 +10,15 @@ const props = defineProps<{
   plotlinesById?: ReadonlyMap<string, PlotlineBadge> | null
   /** From the full dataset tier — cast names take their family tone once it loads. */
   charactersById?: ReadonlyMap<string, CharacterRef> | null
+  /**
+   * A `key:value` facet token naming the list this card sits in. Passed through
+   * to the episode page as `?list=`, so prev/next there keep following the list
+   * the visitor was actually browsing rather than reverting to ±1.
+   */
+  list?: string | null
 }>()
+
+const to = computed(() => episodeLink(props.episode.no, props.list))
 
 const tags = computed(() => props.episode.tagIds.map(id => TAGS_BY_ID.get(id)).filter(isPresent))
 const tagStyle = (id: string) => toneBadgeStyle(TAG_TONES.get(id))
@@ -44,7 +52,7 @@ const castStyle = (token: string) => toneTextStyle(
 
 <template>
   <UCard
-    :to="`/episode/${episode.no}`"
+    :to="to"
     variant="subtle"
     class="hover:ring-primary transition"
     :ui="{ body: 'p-3 sm:p-4' }"
@@ -60,7 +68,7 @@ const castStyle = (token: string) => toneTextStyle(
       </div>
       <div class="min-w-0 flex-1">
         <NuxtLink
-          :to="`/episode/${episode.no}`"
+          :to="to"
           class="font-medium hover:text-primary line-clamp-2"
         >
           {{ episode.title }}

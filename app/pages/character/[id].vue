@@ -13,6 +13,8 @@ const cardPlotlinesById = computed(() => byId(view.value?.cardPlotlines ?? []))
 const cardCharactersById = computed(() => byId(view.value?.cardCharacters ?? []))
 // the subject's own tone, the same one their name carries on every card
 const tone = computed(() => ch.value && characterTone(ch.value))
+// 焦點劇集 is a playlist too — opening one keeps prev/next on this character.
+const list = computed(() => facetToken('characters', id.value))
 
 const title = computed(() => (ch.value ? pageTitle(ch.value.name) : '找不到此角色'))
 
@@ -128,6 +130,7 @@ useSchemaOrg(computed(() => (ch.value ? [homeBreadcrumb(ch.value.name)] : [])))
             :episode="ep"
             :plotlines-by-id="cardPlotlinesById"
             :characters-by-id="cardCharactersById"
+            :list="list"
           />
         </div>
       </section>
