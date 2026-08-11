@@ -38,11 +38,14 @@ jobs:
         id: pages
         uses: actions/configure-pages@v5
 
-      # Build the static site. base_path from configure-pages is e.g.
-      # "/come-home-love-lb"; Nuxt's NUXT_APP_BASE_URL needs a trailing slash.
-      # NUXT_SITE_URL is the *origin only* — nuxt-site-config joins it with
-      # app.baseURL to build canonicals and sitemap entries, so repeating the
-      # repo path there would double it.
+      # Build the static site. Both values come from the repo's Pages settings
+      # via configure-pages, so the custom domain is configured in one place:
+      # with it set, base_path is "" (the site is served from the root) and
+      # origin is https://comehomelovelb.williamchong.cloud. Without it they
+      # fall back to "/come-home-love-lb" and the github.io origin.
+      # NUXT_APP_BASE_URL needs the trailing slash Nuxt expects; NUXT_SITE_URL
+      # is the *origin only* — nuxt-site-config joins it with app.baseURL to
+      # build canonicals and sitemap entries, so repeating a path would double it.
       - name: Build
         run: pnpm run build
         env:

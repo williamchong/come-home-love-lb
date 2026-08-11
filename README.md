@@ -2,7 +2,7 @@
 
 A filterable episode catalog for the TVB sitcom 《愛·回家之開心速遞》(*Come Home Love: Lo and Behold*, 2,800+ episodes). Pick episodes to rewatch by **character, story line / CP, festival, cameo, milestone, location, family/organisation, writer, year, or free text** — fully static, no backend.
 
-Built with Nuxt 4 + Nuxt UI 4 + Tailwind 4. Deployed to GitHub Pages.
+Built with Nuxt 4 + Nuxt UI 4 + Tailwind 4. Deployed to GitHub Pages at <https://comehomelovelb.williamchong.cloud>.
 
 ## How it works
 
@@ -26,7 +26,7 @@ app/                        → Nuxt app reading app/data/*.json
 
 Although the app filters client-side, it is **not** shipped as a bare SPA shell. `pnpm build` prerenders every episode, character and plot-line page to its own static HTML file — around 4,300 of them — each with its own title, description, canonical URL and schema.org data, alongside a `sitemap.xml`, courtesy of [`@nuxtjs/seo`](https://nuxt.com/modules/seo). This matters on GitHub Pages specifically: it answers any path it has no file for with `404.html` *and an HTTP 404 status*, so an un-prerendered deep link is unindexable no matter what the JavaScript later renders.
 
-No `robots.txt` is generated for the Pages deployment, because a project site lives under `/<repo>/` and crawlers only ever read `https://<user>.github.io/robots.txt` — a file this repo doesn't own. **Submit `sitemap.xml` through Google Search Console** rather than expecting it to be discovered.
+The site is served from its own domain, <https://comehomelovelb.williamchong.cloud>, so it also owns `/robots.txt` — generated at build time and pointing crawlers at `sitemap.xml`. (Under the old `<user>.github.io/<repo>/` project-page URL it couldn't: only `https://<host>/robots.txt` is ever consulted, and that path belonged to a different repo.)
 
 ## Refreshing the data
 
@@ -61,7 +61,12 @@ pnpm build        # static output in .output/public
 
 ## Deployment
 
-Pushing to `main` triggers `.github/workflows/deploy.yml`, which builds the static site (with the correct GitHub Pages base path) and publishes it. Enable **Settings → Pages → Source: GitHub Actions** once.
+Pushing to `master` triggers `.github/workflows/deploy.yml`, which builds the static site and publishes it. Two one-time settings:
+
+- **Settings → Pages → Source: GitHub Actions**.
+- **Settings → Pages → Custom domain: `comehomelovelb.williamchong.cloud`**, plus a DNS `CNAME` record pointing it at `williamchong.github.io`, then **Enforce HTTPS**.
+
+The build reads both the origin and the base path from those Pages settings (`actions/configure-pages`), so the custom domain is the only place the URL is configured: with it set the site builds for the root, without it it falls back to `/come-home-love-lb/` on `github.io`.
 
 ---
 

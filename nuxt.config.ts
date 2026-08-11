@@ -102,18 +102,20 @@ export default defineNuxtConfig({
 
   css: ['~/assets/css/main.css'],
 
-  // GitHub Pages project pages serve under /<repo>/. Set the NUXT_APP_BASE_URL
-  // env var in CI (Nuxt maps it to app.baseURL automatically); defaults to '/'.
+  // The custom domain serves from the root, so app.baseURL stays '/'. CI still
+  // passes NUXT_APP_BASE_URL from the Pages settings (Nuxt maps it to
+  // app.baseURL automatically), which resolves to '/' for a custom domain and
+  // back to /<repo>/ if the site ever falls back to a project page.
 
   /**
    * `url` is the **origin only**. nuxt-site-config joins it with `app.baseURL`
    * to build canonicals and sitemap entries, and its de-duplication only fires
    * when the origin ends with the base *including* its trailing slash — so
-   * spelling the repo path here as well yields …/come-home-love-lb/come-home-love-lb/.
+   * spelling a path here as well would double it (…/come-home-love-lb/come-home-love-lb/).
    * CI passes the Pages origin via NUXT_SITE_URL.
    */
   site: {
-    url: 'https://williamchong.github.io',
+    url: 'https://comehomelovelb.williamchong.cloud',
     name: SITE_TITLE,
     description: SITE_DESCRIPTION,
     defaultLocale: SITE_LOCALE
@@ -218,12 +220,12 @@ export default defineNuxtConfig({
 
   robots: {
     /**
-     * Only https://<host>/robots.txt is ever consulted, and on a GitHub Pages
-     * *project* site that file belongs to the user-site repo, not this one — so
-     * @nuxtjs/robots refuses (with a build ERROR) to emit one under a base URL.
-     * Skip it there and keep it for root deployments, e.g. a custom domain.
-     * Per-page robots meta tags are unaffected; the sitemap has to be handed to
-     * Search Console directly rather than advertised in robots.txt.
+     * Only https://<host>/robots.txt is ever consulted, so the file is ours to
+     * emit now that the site owns its domain and serves from the root — which
+     * is also what lets it advertise sitemap.xml. Kept conditional because
+     * @nuxtjs/robots refuses (with a build ERROR) to emit one under a base URL:
+     * on a GitHub Pages *project* site that path belongs to the user-site repo,
+     * not this one. Per-page robots meta tags are unaffected either way.
      */
     robotsTxt: (process.env.NUXT_APP_BASE_URL || '/') === '/',
     // Nothing here is private. The thin roster pages call useRobotsRule() to
