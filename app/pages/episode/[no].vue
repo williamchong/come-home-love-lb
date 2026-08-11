@@ -68,13 +68,23 @@ useSchemaOrg(computed(() => (ep.value
 </script>
 
 <template>
-  <UContainer class="py-6 max-w-3xl">
+  <!-- Filled to the viewport below `md` so the transport bar can sit on its
+       bottom edge. Two things are needed and neither is obvious: `sticky` only
+       holds an element back from scrolling away, it never pushes one past where
+       the flow put it — hence the column and the spacer below; and a sticky box
+       is capped by its containing block's *content* box, so `pb-0`, or the bar
+       pins a padding's width above the fold. `svh` rather than `dvh` keeps that
+       edge from reflowing as mobile browser chrome retracts.
+
+       `self-start` on the two buttons is the cost of the column: a flex parent
+       stretches inline-flex children, which would run them the full width. -->
+  <UContainer class="pt-6 pb-0 md:pb-6 max-w-3xl flex flex-col min-h-[calc(100svh-var(--ui-header-height))] md:block md:min-h-0">
     <UButton
       to="/"
       icon="i-lucide-arrow-left"
       variant="link"
       color="neutral"
-      class="mb-4 px-0"
+      class="mb-4 px-0 self-start"
     >
       返回劇集導航
     </UButton>
@@ -109,7 +119,7 @@ useSchemaOrg(computed(() => (ep.value
         size="xs"
         color="neutral"
         variant="subtle"
-        class="mt-3"
+        class="mt-3 self-start"
       >
         myTV SUPER 收看
       </UButton>
@@ -202,6 +212,11 @@ useSchemaOrg(computed(() => (ep.value
           </ULink>
         </div>
       </section>
+
+      <!-- Takes the leftover height so the bar lands on the bottom edge;
+           collapses to nothing once the content fills the viewport, and is
+           inert at `md` where the container is back to `block`. -->
+      <div class="grow" />
 
       <!-- ±1 by default; steps through whatever list the visitor arrived inside
            once `?list=` resolves. -->
