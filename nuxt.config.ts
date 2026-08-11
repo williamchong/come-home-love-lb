@@ -151,7 +151,8 @@ export default defineNuxtConfig({
   // default `serverBundle: 'local'` API route, and the app renders its icons
   // client-side (data composables run with `server: false`). Bundle the icons
   // into the client JS instead so nothing is fetched at runtime.
-  // `scan` picks up every `i-lucide-*` literal in our own `.vue` templates;
+  // `scan` picks up every `i-<collection>-*` literal in our own `.vue` templates
+  // — `i-lucide-*` throughout, plus the one `i-simple-icons-*` in the footer;
   // `icons` adds Nuxt UI's component-internal defaults (check, loader-circle,
   // …) which live in node_modules and so are invisible to the scanner.
   icon: {
