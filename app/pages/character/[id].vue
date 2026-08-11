@@ -8,6 +8,7 @@ const { data: view, status } = await useCharacterViewAsync(id)
 
 const ch = computed(() => view.value?.ch ?? null)
 const episodes = computed(() => view.value?.episodes ?? [])
+const highlighted = useEpisodeAnchor(episodes)
 const plotlines = computed(() => view.value?.plotlines ?? [])
 const cardPlotlinesById = computed(() => byId(view.value?.cardPlotlines ?? []))
 const cardCharactersById = computed(() => byId(view.value?.cardCharacters ?? []))
@@ -131,6 +132,7 @@ useSchemaOrg(computed(() => (ch.value ? [homeBreadcrumb(ch.value.name)] : [])))
             :plotlines-by-id="cardPlotlinesById"
             :characters-by-id="cardCharactersById"
             :list="list"
+            :highlighted="highlighted === ep.no"
           />
         </div>
       </section>

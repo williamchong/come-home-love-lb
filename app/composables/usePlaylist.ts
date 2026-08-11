@@ -2,6 +2,7 @@ import type { EntityTone } from '~/utils/entityTone'
 import type { Dataset } from './useDataset'
 import type { ArcNav, EpisodePosition } from './useDetailView'
 import type { FacetKey } from './useEpisodeFilter'
+import { episodeHash } from '~/utils/episodeLink'
 import { characterTone, familyTone } from '~/utils/entityTone'
 import { TAG_TONES } from '~/utils/tags'
 import { loadDataset } from './useDataset'
@@ -36,6 +37,13 @@ interface PlaylistSource {
   to: string
   tone?: EntityTone
   nos: number[]
+  /**
+   * Whether `to` opens a page that lists these episodes, and can therefore be
+   * pointed at the one being read (`#ep-1234`). True of the two that have a page
+   * of their own; the rest open the filtered index, which paginates and so has
+   * no row to promise.
+   */
+  anchored?: boolean
 }
 
 /**
@@ -49,14 +57,19 @@ interface PlaylistSource {
 const SOURCES: Record<FacetKey, (ds: Dataset, value: string) => PlaylistSource | null> = {
   plotlines: (ds, value) => {
     const pl = ds.plotlinesById.get(value)
-    return pl ? { label: pl.name, to: `/plotline/${pl.id}`, tone: pl.tone, nos: pl.episodes.map(e => e.no) } : null
+    return pl
+      ? {
+          label: pl.name, to: `/plotline/${pl.id}`, tone: pl.tone,
+          nos: pl.episodes.map(e => e.no), anchored: true
+        }
+      : null
   },
   characters: (ds, value) => {
     const ch = ds.charactersById.get(value)
     return ch
       ? {
           label: ch.name, to: `/character/${encodeURIComponent(ch.id)}`,
-          tone: characterTone(ch), nos: ch.episodeNos ?? []
+          tone: characterTone(ch), nos: ch.episodeNos ?? [], anchored: true
         }
       : null
   },
@@ -97,7 +110,7 @@ async function buildPlaylist(token: string | null, no: number, arcs: ArcNav[]): 
     const arc = arcs.find(a => a.id === parsed.value)
     if (arc) {
       const { id, name, ...position } = arc
-      return { token, no, label: name, to: `/plotline/${id}`, ...position }
+      return { token, no, label: name, to: `/plotline/${id}${episodeHash(no)}`, ...position }
     }
   }
 
@@ -108,7 +121,8 @@ async function buildPlaylist(token: string | null, no: number, arcs: ArcNav[]): 
   // A list that doesn't contain this episode is a stale or hand-edited link.
   // Falling back to null just puts the page back on ±1.
   if (!position) return null
-  return { token, no, label: source.label, to: source.to, tone: source.tone, ...position }
+  const to = source.anchored ? `${source.to}${episodeHash(no)}` : source.to
+  return { token, no, label: source.label, to, tone: source.tone, ...position }
 }
 
 /**

@@ -17,6 +17,9 @@ const tagStyle = (id: string) => toneBadgeStyle(TAG_TONES.get(id))
 const focusStyle = (token: string) => toneBadgeStyle(
   tokenTone(token, charactersById.value, ep.value?.groupIds.includes(token))
 )
+// Every link out of here into a list that contains this episode carries it, so
+// the list opens at the row you left rather than at its top.
+const anchor = computed(() => episodeHash(no.value))
 const prev = computed(() => view.value?.prev ?? null)
 const next = computed(() => view.value?.next ?? null)
 const arcs = computed(() => view.value?.arcs ?? [])
@@ -179,7 +182,7 @@ useSchemaOrg(computed(() => (ep.value
           <UButton
             v-for="c in characters"
             :key="c.id"
-            :to="`/character/${encodeURIComponent(c.id)}`"
+            :to="`/character/${encodeURIComponent(c.id)}${anchor}`"
             size="xs"
             color="neutral"
             variant="subtle"
@@ -204,7 +207,7 @@ useSchemaOrg(computed(() => (ep.value
           <ULink
             v-for="p in plotlines"
             :key="p.id"
-            :to="`/plotline/${p.id}`"
+            :to="`/plotline/${p.id}${anchor}`"
             class="hover:underline"
             :style="toneTextStyle(p.tone)"
           >
