@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import type { Dataset } from '~/composables/useDataset'
 import type { FacetItem } from '~/composables/useFacetIndex'
-import { FACET_TEXT_CLASS } from '~/types'
 
 // The two mount sites differ in what the surrounding chrome already provides:
 // the drawer has its own footer count and its own height budget, so it drops
@@ -15,10 +14,11 @@ const emit = defineEmits<{ reset: [] }>()
 
 const state = useFilterState()
 
-// bound so the index can list only the top options per section until you type
-const facetSearch = ref('')
-const { sections, groups, byToken } = useFacetIndex(() => props.ds, facetSearch)
+const { sections, byToken } = useFacetIndex(() => props.ds)
 const tokens = useFacetTokens(state)
+
+// 新增篩選 hands over to the page's palette — see SearchOmnibox
+const { show } = useOmnibox()
 
 /**
  * A toned entity keeps its neutral surface — an inline background would beat the
@@ -115,39 +115,19 @@ const years = computed(() => props.ds.facets.years.map(y => Number(y.value)))
       class="w-full"
     />
 
-    <USelectMenu
-      v-model="tokens"
-      v-model:search-term="facetSearch"
-      :items="groups"
-      multiple
-      value-key="token"
+    <!-- Opens the page's omnibox rather than a dropdown of its own: one search
+         surface, and the panel's ~440 options were unreachable inside a listbox
+         eight rows tall. -->
+    <UButton
+      block
+      color="neutral"
+      variant="subtle"
       icon="i-lucide-list-filter"
-      :filter-fields="FACET_FILTER_FIELDS"
-      :search-input="{ placeholder: '角色、故事線、節日、里程碑…' }"
-      class="w-full"
-      :ui="{ content: 'min-w-72 max-w-[calc(100vw-2rem)]' }"
+      :ui="{ base: 'justify-start font-normal' }"
+      @click="show()"
     >
-      <!-- the trigger always invites a new pick; what's chosen shows as chips -->
-      <template #default>
-        <span class="text-dimmed">新增篩選…</span>
-      </template>
-      <template #item-leading="{ item }">
-        <UIcon
-          v-if="item.icon"
-          :name="item.icon"
-          :class="['size-5 shrink-0', item.color ? FACET_TEXT_CLASS[item.color] : '']"
-          :style="toneTextStyle(item.tone)"
-        />
-      </template>
-      <template #item-label="{ item }">
-        <span class="truncate">{{ item.label }}</span>
-        <span
-          v-if="item.meta"
-          class="text-muted text-xs ml-1"
-        >{{ item.meta }}</span>
-        <span class="text-muted text-xs ml-auto pl-2">{{ item.count }}</span>
-      </template>
-    </USelectMenu>
+      <span class="text-dimmed">新增篩選…</span>
+    </UButton>
 
     <div
       v-if="chips.length"

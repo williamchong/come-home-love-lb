@@ -21,19 +21,13 @@ const seedCharactersById = computed(() => byId(seed.value?.cardCharacters ?? [])
 // mobile filter drawer
 const drawerOpen = ref(false)
 
-// jump straight to an episode by number — faster than filtering when you already
-// know which one you want. Resolved against the dataset so typos don't 404.
-const jumpNo = ref('')
-const jumpTarget = computed(() => {
-  const n = Number(jumpNo.value)
-  return Number.isInteger(n) && core.value?.episodesByNo.has(n) ? n : null
+// The drawer's 新增篩選 opens the omnibox, and a palette stacked on a bottom
+// sheet is two overlays deep on the smallest screen — hand over instead. The
+// drawer exists to add a filter, which is what the palette is about to do.
+const { open: omniboxOpen } = useOmnibox()
+watch(omniboxOpen, (v) => {
+  if (v) drawerOpen.value = false
 })
-// The form renders above the loading guard, so `core` is still null on first
-// paint — only call a number missing once there is a dataset to miss from.
-const jumpUnknown = computed(() => Boolean(core.value && jumpNo.value && !jumpTarget.value))
-function jump() {
-  if (jumpTarget.value) navigateTo(`/episode/${jumpTarget.value}`)
-}
 
 // shared across the desktop sidebar + mobile drawer instances of FilterPanel;
 // null until the full tier loads, so render sites guard on `v-if="panelProps"`
@@ -90,34 +84,9 @@ useSchemaOrg([
         篩選 {{ seed?.meta.total.toLocaleString() ?? '2800+' }} 集，依角色、故事線、CP、節日、客串與里程碑找回想重溫的劇情。
       </p>
 
-      <form
-        class="mt-3 flex items-center gap-2"
-        @submit.prevent="jump"
-      >
-        <UInput
-          v-model="jumpNo"
-          type="number"
-          inputmode="numeric"
-          placeholder="集數"
-          icon="i-lucide-hash"
-          size="sm"
-          class="w-28"
-          :aria-label="'跳至指定集數'"
-        />
-        <UButton
-          type="submit"
-          size="sm"
-          color="neutral"
-          variant="subtle"
-          :disabled="!jumpTarget"
-        >
-          前往
-        </UButton>
-        <span
-          v-if="jumpUnknown"
-          class="text-xs text-error"
-        >沒有第 {{ jumpNo }} 集</span>
-      </form>
+      <!-- The site's front door. Renders identically before and after either
+           tier lands, so it is above the loading guard and hydration-safe. -->
+      <SearchOmnibox class="mt-3" />
     </div>
 
     <!-- 精選 — part of the prerendered seed, so the first screen is curated
