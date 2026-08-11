@@ -35,6 +35,18 @@ export const bySort = (sort: SortKey) => (a: Episode, b: Episode) =>
 export const PAGE_SIZE = 48
 
 /**
+ * The free-text predicate, over an already trimmed + lowercased `q`.
+ *
+ * Split in two because the omnibox previews the title half on its own — every
+ * row it lists has to visibly contain what was typed — while the filter it hands
+ * the term to also matches 故事主人翁. Defined once so the preview can't drift
+ * from the search it is previewing.
+ */
+export const matchesTitle = (ep: Episode, q: string) => ep.title.toLowerCase().includes(q)
+export const matchesQuery = (ep: Episode, q: string) =>
+  matchesTitle(ep, q) || ep.protagonists.some(p => p.toLowerCase().includes(q))
+
+/**
  * The `FilterState` fields holding facet selections. Every one is an OR-set of
  * ids filtered the same way, so they are enumerated once here rather than spelled
  * out at each site that has to walk them all.
@@ -179,7 +191,7 @@ export function useEpisodeFilter(ds: Ref<CoreDataset | null | undefined>) {
     const s = state.value
     const q = s.q.trim().toLowerCase()
     const out = data.episodes.filter((ep) => {
-      if (q && !ep.title.toLowerCase().includes(q) && !ep.protagonists.some(p => p.toLowerCase().includes(q))) return false
+      if (q && !matchesQuery(ep, q)) return false
       if (s.characters.length && !someIn(s.characters, ep.characterIds)
         && !(s.includeMentions && someIn(s.characters, ep.mentionedCharacterIds))) return false
       if (s.plotlines.length && !someIn(s.plotlines, ep.plotlineIds)) return false
