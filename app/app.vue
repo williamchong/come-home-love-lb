@@ -4,14 +4,19 @@ import { SITE_DESCRIPTION, SITE_LOCALE, SITE_TITLE } from '~/types'
 // GitHub Pages project sites serve under /<repo>/, and useHead does not apply
 // app.baseURL for us — a bare '/favicon.ico' resolves to the domain root. Nuxt
 // normalises baseURL to a trailing slash, so this concatenation is safe.
-const favicon = `${useRuntimeConfig().app.baseURL}favicon.ico`
+const base = useRuntimeConfig().app.baseURL
 
 useHead({
   meta: [
     { name: 'viewport', content: 'width=device-width, initial-scale=1' }
   ],
+  // The SVG is the real icon — it stays sharp at every size and swaps its body
+  // colour under a dark tab bar. The .ico is rasterised from it as the fallback
+  // for browsers that ignore SVG icons, and for anything that blindly fetches
+  // /favicon.ico.
   link: [
-    { rel: 'icon', href: favicon }
+    { rel: 'icon', type: 'image/svg+xml', href: `${base}favicon.svg` },
+    { rel: 'icon', sizes: '48x48', href: `${base}favicon.ico` }
   ],
   htmlAttrs: {
     lang: SITE_LOCALE
