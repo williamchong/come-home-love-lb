@@ -68,6 +68,16 @@ Pushing to `master` triggers `.github/workflows/deploy.yml`, which builds the st
 
 The build reads both the origin and the base path from those Pages settings (`actions/configure-pages`), so the custom domain is the only place the URL is configured: with it set the site builds for the root, without it it falls back to `/come-home-love-lb/` on `github.io`.
 
+## License
+
+The **code** in this repository is © 2026 William Chong and licensed under the
+[GNU General Public License v3.0 or later](LICENSE). Every dependency it ships to the browser is
+MIT / ISC / BSD / Apache-2.0 / CC0, all of which are GPLv3-compatible.
+
+The **data** is not the author's to relicense and is excluded from the above: `app/data/*.json` is
+derived from the [wiki sources](#data-sources) above, and stays under
+[CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/) with attribution to them.
+
 ---
 
 > Non-official fan project. All episode/character data © their respective rights holders; sourced from 維基學院 / 維基百科.
