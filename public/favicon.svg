@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- A TV, drawn as paths rather than an emoji glyph so it renders identically
+       on every platform. Slate body + green screen match the app's Nuxt UI
+       palette; the body/knob colours swap under a dark tab bar. -->
+  <style>
+    .body { fill: #334155 }
+    .knob { fill: #e2e8f0 }
+    .aerial { stroke: #334155 }
+    @media (prefers-color-scheme: dark) {
+      .body { fill: #e2e8f0 }
+      .knob { fill: #334155 }
+      .aerial { stroke: #e2e8f0 }
+    }
+  </style>
+  <g
+    class="aerial"
+    stroke-width="2.4"
+    stroke-linecap="round"
+    fill="none"
+  >
+    <path d="M16 11 L9 3.5" />
+    <path d="M16 11 L23 3.5" />
+  </g>
+  <rect class="body" x="2" y="10" width="28" height="19" rx="3" />
+  <rect fill="#22c55e" x="4.5" y="12.5" width="19" height="14" rx="1.8" />
+  <circle class="knob" cx="26.8" cy="16.6" r="1.5" />
+  <circle class="knob" cx="26.8" cy="21.8" r="1.5" />
+</svg>
