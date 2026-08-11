@@ -24,8 +24,12 @@ useHead({
 })
 
 // Site-level fallbacks; detail pages override them through `usePageSeo`.
+//
+// There is deliberately no `title:` here — the template already answers an unset
+// title with SITE_TITLE, and a static entry spelling that same string out-resolves
+// the index page's reactive title so its filtered form never lands. See the note
+// on `useSeoMeta` in `pages/index.vue` before adding one back.
 useSeoMeta({
-  title: SITE_TITLE,
   titleTemplate: t => (t && t !== SITE_TITLE ? `${t}` : SITE_TITLE),
   description: SITE_DESCRIPTION,
   ogTitle: SITE_TITLE,

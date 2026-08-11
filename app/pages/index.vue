@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { SERIES_NAME, SITE_LOCALE } from '~/types'
+import { SERIES_NAME, SITE_LOCALE, pageTitle } from '~/types'
 
 // Two tiers: `core` (episodes/tags/meta) paints the list fast; `full` (adds
 // characters/plot lines/groups) loads in the background for the facet panel.
@@ -61,8 +61,42 @@ const list = computed(() => (tokens.value.length === 1 && activeCount.value === 
 const listHeading = computed(() =>
   activeCount.value ? '篩選結果' : SORT_HEADING[state.value.sort])
 
-// Title and description come from app.vue, which already carries the
-// site-level pair this page would otherwise repeat verbatim.
+/**
+ * The tab title, when the view has a name.
+ *
+ * `list` is reused rather than re-derived: it is already the "these results are
+ * exactly one named facet" test, so the tab is titled after the very playlist
+ * the cards hand on. Anything broader — two facets AND-ed, a facet plus a title
+ * search — describes a set with no name, and falls back to the site title.
+ *
+ * `pageTitle` keeps the series name, as every detail page does; the 劇集導航
+ * qualifier is what stops「安凌線」filtered here from reading exactly like the
+ * 安凌線 page's own title, since both would otherwise resolve to the same string.
+ *
+ * `null`, not SITE_TITLE, is that fallback, and app.vue must **not** set a
+ * `title` of its own beside its `titleTemplate` — the template already returns
+ * SITE_TITLE for an unset title, and a second entry spelling the same string
+ * costs this one its claim on the tag: unhead then keeps resolving to app.vue's
+ * static value and this getter's later, real title never reaches the DOM. It
+ * fails silently, so re-adding `title:` there looks harmless and isn't.
+ *
+ * Only the title moves. og:title stays site-level on purpose: GitHub Pages
+ * serves one prerendered index.html for every query string, so a shared
+ * /?plots=… link is scraped as the unfiltered home page whatever the tab says.
+ * `byToken` needs the full tier, which is client-only, so the prerendered head
+ * always carries SITE_TITLE and unhead patches this in a tick later — a head
+ * tag is patched rather than hydrated, so the two disagreeing is not a mismatch.
+ */
+const { byToken } = useFacetIndex(full)
+useSeoMeta({
+  title: () => {
+    const label = list.value && byToken.value.get(list.value)?.label
+    return label ? pageTitle(`${label} · 劇集導航`) : null
+  }
+})
+
+// Description comes from app.vue, which already carries the site-level line
+// this page would otherwise repeat verbatim.
 useSchemaOrg([
   defineTVSeries({
     name: SERIES_NAME,
