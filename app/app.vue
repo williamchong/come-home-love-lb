@@ -6,6 +6,12 @@ import { SITE_DESCRIPTION, SITE_LOCALE, SITE_TITLE } from '~/types'
 // normalises baseURL to a trailing slash, so this concatenation is safe.
 const base = useRuntimeConfig().app.baseURL
 
+// The two pages the ETL parses, spelled out rather than percent-encoded so they
+// stay readable — both titles are exactly what `fetch-sources.mjs` pulls.
+const WIKIVERSITY_SOURCE = 'https://zh.wikiversity.org/zh-hk/愛·回家之開心速遞集數列表及故事系列'
+const WIKIPEDIA_SOURCE = 'https://zh.wikipedia.org/zh-hk/愛·回家之開心速遞'
+const ISSUES_URL = 'https://github.com/williamchong/come-home-love-lb/issues'
+
 useHead({
   meta: [
     { name: 'viewport', content: 'width=device-width, initial-scale=1' }
@@ -69,8 +75,29 @@ useSeoMeta({
     <UFooter>
       <template #left>
         <p class="text-sm text-muted">
-          資料來源：維基學院／維基百科 · 非官方粉絲項目
+          資料來源：<ULink
+            :to="WIKIVERSITY_SOURCE"
+            target="_blank"
+            class="underline underline-offset-2 hover:text-highlighted"
+          >維基學院</ULink>／<ULink
+            :to="WIKIPEDIA_SOURCE"
+            target="_blank"
+            class="underline underline-offset-2 hover:text-highlighted"
+          >維基百科</ULink> · 非官方粉絲項目
         </p>
+      </template>
+
+      <template #right>
+        <UButton
+          :to="ISSUES_URL"
+          target="_blank"
+          icon="i-simple-icons-github"
+          size="xs"
+          color="neutral"
+          variant="ghost"
+        >
+          回報問題
+        </UButton>
       </template>
     </UFooter>
   </UApp>
