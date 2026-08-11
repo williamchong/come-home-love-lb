@@ -8,6 +8,7 @@ const { data: view, status } = await usePlotlineViewAsync(id)
 
 const pl = computed(() => view.value?.pl ?? null)
 const sorted = computed(() => [...(pl.value?.episodes || [])].sort((a, b) => a.no - b.no))
+const highlighted = useEpisodeAnchor(sorted)
 // milestones that live inside this plot line
 const milestones = computed(() => TAGS.filter(t => t.kind === 'milestone' && t.parentPlotlineId === id.value))
 const tagStyle = (tagId: string) => toneBadgeStyle(TAG_TONES.get(tagId))
@@ -127,11 +128,14 @@ useSchemaOrg(computed(() => (pl.value ? [homeBreadcrumb(pl.value.name)] : [])))
       <ol class="space-y-1">
         <li
           v-for="e in sorted"
+          :id="episodeAnchor(e.no)"
           :key="e.no"
+          :class="EPISODE_ANCHOR_CLASS"
         >
           <ULink
             :to="episodeLink(e.no, list)"
             class="flex gap-3 py-1.5 px-2 rounded hover:bg-elevated"
+            :class="highlighted === e.no && `bg-elevated ${EPISODE_ANCHOR_RING}`"
           >
             <span class="tabular-nums text-muted w-12 text-right shrink-0">{{ e.no }}</span>
             <span class="text-highlighted">{{ e.title }}</span>

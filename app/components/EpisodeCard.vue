@@ -16,6 +16,13 @@ const props = defineProps<{
    * the visitor was actually browsing rather than reverting to ±1.
    */
   list?: string | null
+  /**
+   * The card the visitor just arrived at, via `#ep-1234` — rings it so the
+   * scroll reads as an arrival rather than a mis-scroll. A prop rather than a
+   * class from the parent because the ring colour is what `UCard` already sets
+   * here, and one binding should decide it.
+   */
+  highlighted?: boolean
 }>()
 
 const to = computed(() => episodeLink(props.episode.no, props.list))
@@ -52,9 +59,11 @@ const castStyle = (token: string) => toneTextStyle(
 
 <template>
   <UCard
+    :id="episodeAnchor(episode.no)"
     :to="to"
     variant="subtle"
-    class="hover:ring-primary transition"
+    class="transition"
+    :class="[EPISODE_ANCHOR_CLASS, highlighted ? EPISODE_ANCHOR_RING : 'hover:ring-primary']"
     :ui="{ body: 'p-3 sm:p-4' }"
   >
     <div class="flex items-start gap-3">
