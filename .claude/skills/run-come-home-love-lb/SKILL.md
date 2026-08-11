@@ -46,21 +46,29 @@ corepack pnpm dev > /tmp/lb-dev.log 2>&1 &
 timeout 60 bash -c 'until curl -sf http://localhost:3000 >/dev/null; do sleep 1; done'
 ```
 
-Then drive it. This is the verified smoke flow — list loads, free-text
-filter narrows and mirrors to the URL, episode jump navigates to a detail
-page:
+Then drive it. This is the verified smoke flow — list loads, the omnibox's
+free-text row narrows the list and mirrors to the URL, and a bare episode
+number navigates to a detail page. Everything searchable goes through the one
+palette: the page has a single text field, and the filter panel offers a
+button that opens the same one:
 
 ```bash
 node .claude/skills/run-come-home-love-lb/driver.mjs <<'EOF'
 nav http://localhost:3000/
-wait-sel a[href^="/episode/"]
+wait-for 年份
 screenshot list-loaded
-fill input[placeholder="搜尋劇集標題…"] 中秋
-wait-for 中秋
+click button[aria-label="搜尋"]
+wait-sel input[placeholder^="搜尋角色"]
+fill input[placeholder^="搜尋角色"] 中秋
+wait-for 搜尋標題
+eval [...document.querySelectorAll('[role=option]')].find(e=>e.innerText.includes('搜尋標題')).click()
+wait-for 篩選結果
 url
 screenshot filtered
-fill input[placeholder="集數"] 2868
-submit input[placeholder="集數"]
+click button[aria-label="搜尋"]
+fill input[placeholder^="搜尋角色"] 2868
+wait-for 第 2868 集
+eval [...document.querySelectorAll('[role=option]')].find(e=>e.innerText.includes('第 2868 集')).click()
 wait-for myTV SUPER
 url
 screenshot episode-2868
@@ -130,21 +138,26 @@ Both must pass before committing (CI runs lint + typecheck + build).
 
 ## Gotchas
 
-- **The dataset loads lazily in two tiers** — the page shell (header, jump
-  box, 「載入劇集資料中…」) renders before any episodes exist. `wait-for 集`
-  succeeds on the *header* and you screenshot a spinner. Always
-  `wait-sel a[href^="/episode/"]` to know the episode list is really there.
+- **The dataset loads lazily in two tiers, behind a prerendered seed.** The
+  first paint already has 48 real episode cards (the seed), so
+  `wait-sel a[href^="/episode/"]` and `wait-for 集` both succeed while the
+  page is still a static list with no sidebar and nothing filterable. Wait on
+  something only the *full* tier renders: `wait-for 年份` (the filter panel's
+  year row) on desktop. On mobile that row lives inside the drawer, so wait
+  on the sticky bar's 篩選 button instead and open the drawer.
 - **After an SPA navigation, wait on text unique to the destination page.**
   `wait-for 編劇` after the episode jump matches the *filter panel's* 編劇
   label on the list page you're still on, and `url` then reports the old
   route. `myTV SUPER` only appears on episode detail pages — wait on that.
-- **Synthetic Enter doesn't submit forms.** The episode-jump box is a
-  `<form @submit.prevent>`; `press … Enter` fires the keydown but native
-  form submission doesn't happen for synthetic events. Use
-  `submit input[placeholder="集數"]`.
-- **Stable selectors are the CJK placeholders** (`集數`,
-  `搜尋劇集標題…`) — there are no test ids. Keep the exact full-width
-  ellipsis `…` in the search placeholder.
+- **Synthetic Enter doesn't reach the palette's rows.** `press … Enter` on
+  the palette input fires a keydown the component doesn't act on. Click the
+  row instead — `[role=option]` elements, matched by their text (see the
+  smoke flow). `submit` is still there for any real `<form @submit.prevent>`.
+- **Stable selectors are the aria-labels and CJK placeholders** —
+  `button[aria-label="搜尋"]` opens the palette, its input matches
+  `input[placeholder^="搜尋角色"]` (prefix-match it: the full placeholder
+  ends in a full-width `…` and lists every searchable kind), and a chip's
+  remove button is `button[aria-label^="移除篩選"]`. There are no test ids.
 - **`pnpm` on PATH is a broken shim** (`no such file or directory:
   …/v24.15.0/bin/pnpm`). Always go through `corepack pnpm` with the PATH
   line from Prerequisites; plain `corepack` isn't on PATH either without it.

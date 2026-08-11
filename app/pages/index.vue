@@ -21,7 +21,7 @@ const seedCharactersById = computed(() => byId(seed.value?.cardCharacters ?? [])
 // mobile filter drawer
 const drawerOpen = ref(false)
 
-// The drawer's 新增篩選 opens the omnibox, and a palette stacked on a bottom
+// The drawer's search button opens the omnibox, and a palette stacked on a bottom
 // sheet is two overlays deep on the smallest screen — hand over instead. The
 // drawer exists to add a filter, which is what the palette is about to do.
 const { open: omniboxOpen } = useOmnibox()

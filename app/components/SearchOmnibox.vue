@@ -11,6 +11,15 @@
  */
 const { open, term, show } = useOmnibox()
 
+/**
+ * The button stands in for the palette's own input, so the two have to read
+ * identically — a visitor who clicks the field expects the box that opens to be
+ * the thing they clicked. Spelled once so a copy change can't half-apply, and
+ * reused as the modal's description, which is the same promise made to a screen
+ * reader.
+ */
+const SEARCH_PLACEHOLDER = '搜尋角色、故事線、節日、標題或集數…'
+
 // Tiers, both already in flight from the page — `useAsyncData` keys and the
 // module-level promises behind them mean asking again is free. The palette
 // opens before either lands: numbers and titles answer at `core`, facets need
@@ -21,8 +30,8 @@ const { sections } = useFacetIndex(full)
 const groups = useOmniboxGroups(core, sections)
 
 // `usingInput` because the default disables a shortcut while any field has
-// focus — and the panel's 搜尋劇集標題 box is exactly where you realise you
-// wanted the wider search. `meta` becomes Ctrl off macOS on its own.
+// focus — a year select or the palette's own box shouldn't swallow the one
+// shortcut that opens it. `meta` becomes Ctrl off macOS on its own.
 defineShortcuts({ meta_k: { usingInput: true, handler: () => show() } })
 
 // `open` is app-wide state but the modal is only ever mounted here, so leaving
@@ -47,7 +56,7 @@ onUnmounted(() => {
       :ui="{ base: 'justify-start gap-2.5 font-normal' }"
       @click="show()"
     >
-      <span class="text-dimmed truncate">搜尋角色、故事線、節日或集數…</span>
+      <span class="text-dimmed truncate">{{ SEARCH_PLACEHOLDER }}</span>
       <span class="ml-auto hidden sm:flex items-center gap-0.5">
         <UKbd value="meta" />
         <UKbd value="k" />
@@ -57,7 +66,7 @@ onUnmounted(() => {
     <UModal
       v-model:open="open"
       title="搜尋"
-      description="搜尋角色、故事線、節日、集數或劇集標題"
+      :description="SEARCH_PLACEHOLDER"
       :ui="{ content: 'sm:max-w-2xl' }"
     >
       <template #content>
@@ -69,7 +78,7 @@ onUnmounted(() => {
           v-model:search-term="term"
           :groups="groups"
           :loading="!full"
-          placeholder="搜尋角色、故事線、節日或集數…"
+          :placeholder="SEARCH_PLACEHOLDER"
           close
           class="max-h-[60vh] sm:max-h-96"
           @update:open="open = $event"

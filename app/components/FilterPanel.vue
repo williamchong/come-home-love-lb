@@ -17,7 +17,7 @@ const state = useFilterState()
 const { sections, byToken } = useFacetIndex(() => props.ds)
 const tokens = useFacetTokens(state)
 
-// 新增篩選 hands over to the page's palette — see SearchOmnibox
+// the panel's one search button hands over to the page's palette — see SearchOmnibox
 const { show } = useOmnibox()
 
 /**
@@ -30,24 +30,48 @@ const facetVisual = (item?: FacetItem) => ({
   style: toneTextStyle(item?.tone)
 })
 
-// active selections, as removable chips. A token from a stale shared link won't
-// be in the index — show its raw value rather than dropping it from the filter.
-const chips = computed(() => tokens.value.map((token) => {
-  const item = byToken.value.get(token)
-  return {
-    token,
-    label: item?.label ?? parseToken(token)?.value ?? token,
-    icon: item?.icon ?? 'i-lucide-tag',
-    ...facetVisual(item)
-  }
-}))
-function removeChip(token: string) {
-  tokens.value = tokens.value.filter(t => t !== token)
-}
+/**
+ * Active selections, as removable chips — including the free-text search, which
+ * has no box of its own here: it is one of the things the palette answers (its
+ * 搜尋標題／主人翁 row), so a second input beside the search button offered a
+ * narrower version of the same surface. As a chip it is the only place `q` is
+ * still visible, and the only way to drop it without clearing everything.
+ *
+ * Each chip carries its own remover rather than being keyed by kind: `q` is a
+ * `FilterState` field and a facet is an entry in one of its arrays, and a
+ * closure is what lets one row and one handler serve both. A token from a stale
+ * shared link won't be in the index — show its raw value rather than dropping
+ * it from the filter.
+ */
+const chips = computed(() => {
+  const facets = tokens.value.map((token) => {
+    const item = byToken.value.get(token)
+    return {
+      // never collides with the query chip below: a facet token always has a colon
+      key: token,
+      label: item?.label ?? parseToken(token)?.value ?? token,
+      icon: item?.icon ?? 'i-lucide-tag',
+      remove: () => {
+        tokens.value = tokens.value.filter(t => t !== token)
+      },
+      ...facetVisual(item)
+    }
+  })
+  if (!state.value.q) return facets
+  return [{
+    key: 'q',
+    label: `「${state.value.q}」`,
+    icon: 'i-lucide-search',
+    remove: () => {
+      state.value.q = ''
+    },
+    ...facetVisual()
+  }, ...facets]
+})
 
 /**
  * The controls above are deliberately compact, which leaves the desktop sidebar
- * mostly empty — and a lone 新增篩選 box says nothing about *what* it searches.
+ * mostly empty — and a lone search button says nothing about *what* it searches.
  * The browse block spends that space on the head of every facet type, so the
  * available axes are visible and one click away. Options are count-sorted
  * upstream, so the head of each list is also the part worth offering; the cap is
@@ -108,25 +132,22 @@ const years = computed(() => props.ds.facets.years.map(y => Number(y.value)))
       </UButton>
     </div>
 
-    <UInput
-      v-model="state.q"
-      icon="i-lucide-search"
-      placeholder="搜尋劇集標題…"
-      class="w-full"
-    />
-
-    <!-- Opens the page's omnibox rather than a dropdown of its own: one search
+    <!-- Opens the page's omnibox rather than a box of its own: one search
          surface, and the panel's ~440 options were unreachable inside a listbox
-         eight rows tall. -->
+         eight rows tall. It stands in for a title search too — the palette's
+         搜尋標題／主人翁 row hands the term to exactly the filter a local input
+         would have set — so the panel offers one door where it used to offer
+         two. The page has its own field, but that one scrolls away and this
+         sidebar is sticky, and on a phone the drawer covers it entirely. -->
     <UButton
       block
       color="neutral"
       variant="subtle"
-      icon="i-lucide-list-filter"
+      icon="i-lucide-search"
       :ui="{ base: 'justify-start font-normal' }"
       @click="show()"
     >
-      <span class="text-dimmed">新增篩選…</span>
+      <span class="text-dimmed">搜尋或新增篩選…</span>
     </UButton>
 
     <div
@@ -135,7 +156,7 @@ const years = computed(() => props.ds.facets.years.map(y => Number(y.value)))
     >
       <UButton
         v-for="chip in chips"
-        :key="chip.token"
+        :key="chip.key"
         size="sm"
         :color="chip.color"
         variant="soft"
@@ -144,7 +165,7 @@ const years = computed(() => props.ds.facets.years.map(y => Number(y.value)))
         trailing-icon="i-lucide-x"
         :aria-label="`移除篩選：${chip.label}`"
         :ui="{ trailingIcon: 'text-dimmed' }"
-        @click="removeChip(chip.token)"
+        @click="chip.remove()"
       >
         {{ chip.label }}
       </UButton>
@@ -178,10 +199,12 @@ const years = computed(() => props.ds.facets.years.map(y => Number(y.value)))
     </div>
 
     <!-- Memoised on `browse` — its own dependency set. Without this the ~40
-         buttons re-render on every keystroke in the title search above, since
-         a slotted child component is patched unconditionally. `-mr-2 pr-2`
-         parks the scrollbar in the grid gutter so chips don't reflow when it
-         appears. -->
+         buttons re-render on every unrelated filter change (a year bound, the
+         配角出場 switch, a search term arriving from the palette), since a
+         slotted child is patched unconditionally — its slot compiles as
+         DYNAMIC_SLOTS inside the `v-for`, which `shouldUpdateComponent` takes
+         as an update before it compares any prop. `-mr-2 pr-2` parks the
+         scrollbar in the grid gutter so chips don't reflow when it appears. -->
     <div
       v-if="isSidebar && browse.length"
       v-memo="[browse]"
