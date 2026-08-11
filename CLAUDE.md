@@ -53,7 +53,7 @@ Two independent halves. Know which one you're editing.
 GitHub Pages serves an unknown path as `404.html` **with an HTTP 404 status**, so anything not prerendered is invisible to crawlers. `siteRoutes()` in `nuxt.config.ts` therefore enumerates every episode / character / plot line straight out of `app/data/` — Nitro's `crawlLinks` can't find them, because a crawl starting at `/` only sees a loading shell.
 
 Things worth knowing before changing any of it:
-- **`site.url` is the origin only** (`https://williamchong.github.io`). nuxt-site-config joins it with `app.baseURL`; spelling the repo path in both doubles it. CI passes it via `NUXT_SITE_URL`.
+- **`site.url` is the origin only** (`https://comehomelovelb.williamchong.cloud`). nuxt-site-config joins it with `app.baseURL`; spelling a path in both doubles it. CI passes it via `NUXT_SITE_URL`.
 - **Prerender routes live under `$production`.** At the top level their 4,300 entries get inlined into Nuxt's virtual route-rules module and Rollup blows its parser stack on every `pnpm dev`.
 - **Sitemap URLs are passed decoded**, because `@nuxtjs/sitemap` escapes each `<loc>` itself; handing it encoded paths yields `%25E4%25B8%2581…`.
 - **`app/utils/indexable.ts` is shared on purpose.** nuxt.config uses it to pick which characters the sitemap advertises; `character/[id].vue` uses the same predicate for `useRobotsRule()`. ~616 roster footnotes are served but `noindex, follow`, so a page the sitemap promotes can never be one that refuses indexing. Pass `useRobotsRule` a directive **string**: its object form drops false-valued keys, so `{ index: false }` silently emits nothing rather than `noindex`.
@@ -76,5 +76,5 @@ Character search aliases are assembled in `build-data.mjs` (`attachAliases`) fro
 
 - Package manager is **pnpm** (`packageManager` pinned). Node 22 in CI.
 - ESLint uses Nuxt's flat config with stylistic rules: **no comma dangle**, 1tbs brace style. Match the terse, comment-rich style of the existing scripts.
-- GitHub Pages serves under `/<repo>/`; the deploy workflow sets `NUXT_APP_BASE_URL` to the Pages base path (with trailing slash) and `NUXT_SITE_URL` to the Pages origin. Locally they default to `/` and the production origin, so a local build's canonicals omit the repo path — expected, not a bug.
+- The site is served from the custom domain `comehomelovelb.williamchong.cloud`, i.e. **from the root**, so `app.baseURL` is `/`. The deploy workflow still derives `NUXT_APP_BASE_URL` (Pages base path, trailing slash) and `NUXT_SITE_URL` (Pages origin) from `actions/configure-pages`, which reads them from the repo's Pages settings — so the custom domain is configured there and nowhere else, and the wiring falls back to `/come-home-love-lb/` on `github.io` if it's ever removed. `public/CNAME` records the domain in-repo (GitHub Actions deploys read the setting, not the file). Locally both default to `/` and the production origin.
 - This is a non-official fan project; episode/character data is sourced from the wikis and © their rights holders.
