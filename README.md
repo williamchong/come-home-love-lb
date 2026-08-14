@@ -63,12 +63,19 @@ pnpm build        # prerendered site in .output/public, Worker in .output/server
 
 ## Deployment
 
-Pushing to `master` triggers `.github/workflows/deploy.yml`, which builds and runs `wrangler deploy`. The Worker serves `.output/public` as static assets and `.output/server` for everything else. Two repository secrets are required:
+Cloudflare builds and deploys straight from GitHub, so there is no deploy workflow in this repo and no API token to keep in sync. Configured once in the dashboard under **Workers & Pages → come-home-love-lb → Settings → Build**, with the repository connected to `master`:
 
-- `CLOUDFLARE_API_TOKEN` — a token created from the **Edit Cloudflare Workers** template.
-- `CLOUDFLARE_ACCOUNT_ID`.
+| | |
+|---|---|
+| Build command | `pnpm build` |
+| Deploy command | `npx wrangler deploy` |
+| Root directory | `/` |
 
-Everything else is in `wrangler.jsonc`. The production hostname is deliberately *not* declared there yet — read the comment in that file before pointing DNS at the Worker.
+The Worker serves `.output/public` as static assets and `.output/server` for everything else; `main`, `assets` and the bindings all come from `wrangler.jsonc`, so the same `wrangler deploy` runs identically here and on a laptop. `.node-version` pins Node 22 — the build image defaults to 24, and CI builds on 22.
+
+`.github/workflows/ci.yml` still runs lint + typecheck + build on every push. It is a gate, not a deploy.
+
+The production hostname is deliberately *not* declared in `wrangler.jsonc` yet — read the comment in that file before pointing DNS at the Worker.
 
 `run_worker_first` is left at its default, so a request matching a prerendered file is served straight from the asset store and never invokes the Worker. Those requests are free and uncapped, which keeps the free plan's 100k requests/day for the API rather than for page views. `robots.txt` and `sitemap.xml` are prerendered for the same reason: a server preset would otherwise regenerate the 365 KB sitemap on every crawl.
 
