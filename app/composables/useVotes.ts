@@ -99,7 +99,17 @@ export function useVotes() {
         // server is the authority on what this visitor already voted for.
         $fetch<MyVotesResponse>('/api/me').catch(() => null)
       ]).then(([snapshot, me]) => {
-        state.value.scores = snapshot.scores
+        // Where the two disagree, `me` wins. The snapshot is one document
+        // shared by everyone behind a five-minute TTL; `me` is uncached and
+        // about this visitor, so it can only ever be the newer of the two.
+        //
+        // Without this, casting the first vote on a subject and reloading read
+        // back as 「–」: an unvoted subject is *absent* from the snapshot rather
+        // than stale within it, so the score didn't look old, it looked lost.
+        // The reverse case — withdrawing a vote, which drops the subject from
+        // `totals` here — still trails the snapshot by up to one TTL, but that
+        // reads as somebody else's vote rather than as a lost action.
+        state.value.scores = { ...snapshot.scores, ...me?.totals }
         if (me) state.value.mine = me.votes
         // Scores are worth showing even when nobody can vote, but a control
         // that 503s on click is not — which is exactly a deploy that has not

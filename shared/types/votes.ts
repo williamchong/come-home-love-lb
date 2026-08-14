@@ -46,4 +46,16 @@ export interface VoteResponse {
 /** `subject → the caller's own vote`, for restoring UI state on a new device. */
 export interface MyVotesResponse {
   votes: Record<string, VoteValue>
+  /**
+   * Live totals for exactly the subjects in `votes`, which the client lays over
+   * the score snapshot.
+   *
+   * The snapshot is one shared document behind a five-minute TTL, so it can
+   * easily predate this visitor's own vote — and a subject nobody had voted on
+   * before is *absent* from it rather than merely out of date, which renders as
+   * 「–」. So the moment after voting, a refresh showed the vote gone. This
+   * response is `no-store` and per-voter, so its totals are always at least as
+   * fresh as the snapshot's.
+   */
+  totals: ScoreMap
 }
