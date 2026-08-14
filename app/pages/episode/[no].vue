@@ -49,6 +49,7 @@ const description = computed(() => {
 })
 
 usePageSeo(title, description)
+useMissingSubjectStatus(!ep.value)
 
 /** 2019年1月24日 → 2019-01-24, the only date form schema.org accepts. */
 function isoAirDate(date: string): string | undefined {

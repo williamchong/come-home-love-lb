@@ -6,6 +6,9 @@
 .cache
 dist
 
+# Wrangler local state (miniflare's D1/KV emulation, generated deploy config)
+.wrangler
+
 # Node dependencies
 node_modules
 

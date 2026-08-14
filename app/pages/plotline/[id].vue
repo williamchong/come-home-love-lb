@@ -37,6 +37,7 @@ const description = computed(() => {
 })
 
 usePageSeo(title, description)
+useMissingSubjectStatus(!pl.value)
 
 useSchemaOrg(computed(() => (pl.value ? [homeBreadcrumb(pl.value.name)] : [])))
 </script>

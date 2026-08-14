@@ -16,6 +16,28 @@ export function usePageSeo(title: MaybeRefOrGetter<string>, description: MaybeRe
   })
 }
 
+/**
+ * A 404 status for a detail page whose subject does not exist.
+ *
+ * Every real entity is prerendered, so a request only reaches the Worker for a
+ * URL that was mistyped, invented, or left behind by a rename — and the Worker
+ * happily renders the page's friendly 找不到… body for it. Under a **200**,
+ * that is a soft 404: the previous host answered an unknown path with a 404
+ * status of its own, and without this every wrong URL becomes indexable.
+ *
+ * Server-side only, and prerendering never reaches it — the routes are
+ * enumerated from the very data these pages read, so `missing` is false for
+ * every one of them. On the client the status line was sent long ago.
+ *
+ * A plain boolean, not a ref: callers await their subject before reaching here,
+ * SSR runs setup exactly once, and there is no re-render to track — a reactive
+ * signature would promise a contract nothing can exercise.
+ */
+export function useMissingSubjectStatus(missing: boolean) {
+  const event = import.meta.server ? useRequestEvent() : undefined
+  if (event && missing) setResponseStatus(event, 404)
+}
+
 /** The 劇集導航 → subject crumb trail every detail page carries. */
 export function homeBreadcrumb(subject: string) {
   return defineBreadcrumb({

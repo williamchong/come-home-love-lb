@@ -1,8 +1,8 @@
 # 愛·回家之開心速遞 劇集導航
 
-A filterable episode catalog for the TVB sitcom 《愛·回家之開心速遞》(*Come Home Love: Lo and Behold*, 2,800+ episodes). Pick episodes to rewatch by **character, story line / CP, festival, cameo, milestone, location, family/organisation, writer, year, or free text** — fully static, no backend.
+A filterable episode catalog for the TVB sitcom 《愛·回家之開心速遞》(*Come Home Love: Lo and Behold*, 2,800+ episodes). Pick episodes to rewatch by **character, story line / CP, festival, cameo, milestone, location, family/organisation, writer, year, or free text** — every page prerendered, all filtering client-side.
 
-Built with Nuxt 4 + Nuxt UI 4 + Tailwind 4. Deployed to GitHub Pages at <https://comehomelovelb.williamchong.cloud>.
+Built with Nuxt 4 + Nuxt UI 4 + Tailwind 4. Deployed to Cloudflare Workers at <https://comehomelovelb.williamchong.cloud>.
 
 ## How it works
 
@@ -24,9 +24,11 @@ app/                        → Nuxt app reading app/data/*.json
 
 ### Search engines
 
-Although the app filters client-side, it is **not** shipped as a bare SPA shell. `pnpm build` prerenders every episode, character and plot-line page to its own static HTML file — around 4,300 of them — each with its own title, description, canonical URL and schema.org data, alongside a `sitemap.xml`, courtesy of [`@nuxtjs/seo`](https://nuxt.com/modules/seo). This matters on GitHub Pages specifically: it answers any path it has no file for with `404.html` *and an HTTP 404 status*, so an un-prerendered deep link is unindexable no matter what the JavaScript later renders.
+Although the app filters client-side, it is **not** shipped as a bare SPA shell. `pnpm build` prerenders every episode, character and plot-line page to its own static HTML file — around 4,300 of them — each with its own title, description, canonical URL and schema.org data, alongside a `sitemap.xml`, courtesy of [`@nuxtjs/seo`](https://nuxt.com/modules/seo).
 
-The site is served from its own domain, <https://comehomelovelb.williamchong.cloud>, so it also owns `/robots.txt` — generated at build time and pointing crawlers at `sitemap.xml`. (Under the old `<user>.github.io/<repo>/` project-page URL it couldn't: only `https://<host>/robots.txt` is ever consulted, and that path belonged to a different repo.)
+Prerendering everything used to be forced by the host — GitHub Pages answers any path it has no file for with `404.html` *and an HTTP 404 status*, so an un-prerendered deep link was unindexable no matter what the JavaScript later rendered. On Cloudflare Workers that is no longer true, and prerendering is now a deliberate choice for two reasons: a matched static asset is served without invoking the Worker (so page views are free and uncapped), and the Workers free plan allows 10 ms CPU per invocation — not enough to evaluate ~1.8 MB of dataset JSON and render Vue on demand.
+
+The site is served from its own domain, <https://comehomelovelb.williamchong.cloud>, so it also owns `/robots.txt` — generated at build time and pointing crawlers at `sitemap.xml`.
 
 ## Refreshing the data
 
@@ -56,17 +58,23 @@ pnpm install
 pnpm dev          # http://localhost:3000
 pnpm lint
 pnpm typecheck
-pnpm build        # static output in .output/public
+pnpm build        # prerendered site in .output/public, Worker in .output/server
 ```
 
 ## Deployment
 
-Pushing to `master` triggers `.github/workflows/deploy.yml`, which builds the static site and publishes it. Two one-time settings:
+Pushing to `master` triggers `.github/workflows/deploy.yml`, which builds and runs `wrangler deploy`. The Worker serves `.output/public` as static assets and `.output/server` for everything else. Two repository secrets are required:
 
-- **Settings → Pages → Source: GitHub Actions**.
-- **Settings → Pages → Custom domain: `comehomelovelb.williamchong.cloud`**, plus a DNS `CNAME` record pointing it at `williamchong.github.io`, then **Enforce HTTPS**.
+- `CLOUDFLARE_API_TOKEN` — a token created from the **Edit Cloudflare Workers** template.
+- `CLOUDFLARE_ACCOUNT_ID`.
 
-The build reads both the origin and the base path from those Pages settings (`actions/configure-pages`), so the custom domain is the only place the URL is configured: with it set the site builds for the root, without it it falls back to `/come-home-love-lb/` on `github.io`.
+Everything else is in `wrangler.jsonc`. The production hostname is deliberately *not* declared there yet — read the comment in that file before pointing DNS at the Worker.
+
+`run_worker_first` is left at its default, so a request matching a prerendered file is served straight from the asset store and never invokes the Worker. Those requests are free and uncapped, which keeps the free plan's 100k requests/day for the API rather than for page views. `robots.txt` and `sitemap.xml` are prerendered for the same reason: a server preset would otherwise regenerate the 365 KB sitemap on every crawl.
+
+```bash
+pnpm exec wrangler dev     # run the built output locally on :8787
+```
 
 ## License
 

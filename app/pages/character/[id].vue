@@ -31,6 +31,7 @@ const description = computed(() => {
 })
 
 usePageSeo(title, description)
+useMissingSubjectStatus(!ch.value)
 
 // Roster footnotes are still served, so their links resolve, but kept out of
 // the index. nuxt.config filters the sitemap on the very same predicate.

@@ -4,20 +4,20 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-A static, backend-free SPA cataloguing every episode of the TVB sitcom 《愛·回家之開心速遞》(2,800+ episodes), letting users filter which episodes to rewatch by character, story line / CP, festival, cameo, milestone, family/organisation, writer, year, or free text. Nuxt 4 + Nuxt UI 4 + Tailwind 4, deployed to GitHub Pages.
+A static SPA cataloguing every episode of the TVB sitcom 《愛·回家之開心速遞》(2,800+ episodes), letting users filter which episodes to rewatch by character, story line / CP, festival, cameo, milestone, family/organisation, writer, year, or free text. Nuxt 4 + Nuxt UI 4 + Tailwind 4, prerendered and deployed to Cloudflare Workers.
 
 ## Commands
 
 ```bash
 pnpm install
 pnpm dev          # dev server at http://localhost:3000
-pnpm build        # static output → .output/public (Nitro github_pages preset); prerenders ~4,300 routes, several minutes
+pnpm build        # → .output/public (prerendered) + .output/server (Worker); Nitro cloudflare_module preset; ~4,300 routes, several minutes
 pnpm preview      # serve the built output
 pnpm lint         # eslint . (scripts/** and app/data/** are ignored)
 pnpm typecheck    # nuxt typecheck (vue-tsc)
 ```
 
-CI (`.github/workflows/ci.yml`) runs lint + typecheck + build on every push; run all three locally before committing. `.github/workflows/deploy.yml` builds and publishes to GitHub Pages **on push to `master`** (not `main`).
+CI (`.github/workflows/ci.yml`) runs lint + typecheck + build on every push; run all three locally before committing. `.github/workflows/deploy.yml` builds and runs `wrangler deploy` **on push to `master`** (not `main`). `pnpm exec wrangler dev` serves the built output locally on :8787, which is the only way to exercise anything under `server/`.
 
 ### Refreshing the dataset
 
@@ -51,10 +51,17 @@ Two independent halves. Know which one you're editing.
 
 ### SEO (`@nuxtjs/seo`)
 
-GitHub Pages serves an unknown path as `404.html` **with an HTTP 404 status**, so anything not prerendered is invisible to crawlers. `siteRoutes()` in `nuxt.config.ts` therefore enumerates every episode / character / plot line straight out of `app/data/` — Nitro's `crawlLinks` can't find them, because a crawl starting at `/` only sees a loading shell.
+`siteRoutes()` in `nuxt.config.ts` enumerates every episode / character / plot line straight out of `app/data/` and prerenders them — Nitro's `crawlLinks` can't find them, because a crawl starting at `/` only sees a loading shell.
+
+Prerendering **everything** used to be forced by the host: GitHub Pages answered an unknown path with `404.html` *and an HTTP 404 status*, so an un-prerendered route was unindexable. On Cloudflare the Worker can render any route on demand, so this is now a deliberate choice, held for two reasons — check both before dropping it:
+- A request matching a prerendered file is served from the asset store **without invoking the Worker**, and those requests are free and uncapped. That reserves the free plan's whole 100k requests/day for the API. Setting `run_worker_first` in `wrangler.jsonc` would silently move every page view onto that meter.
+- The Workers free plan allows **10 ms CPU per invocation** — not enough to evaluate ~1.8 MB of dataset JSON, run `buildFull()`, and render Vue on demand.
 
 Things worth knowing before changing any of it:
-- **`site.url` is the origin only** (`https://comehomelovelb.williamchong.cloud`). nuxt-site-config joins it with `app.baseURL`; spelling a path in both doubles it. CI passes it via `NUXT_SITE_URL`.
+- **`site.url` is the origin only** (`https://comehomelovelb.williamchong.cloud`). nuxt-site-config joins it with `app.baseURL`; spelling a path in both doubles it. Both are literals now — a Worker owns its whole hostname, so there is no base path to derive.
+- **`CRAWLER_ROUTES` is prerendered for cost, not for crawlers.** `robots.txt` / `sitemap.xml` / the sitemap XSL come from modules, not pages, so a *server* preset registers them as routes rather than emitting files. Left dynamic they are the only routine traffic that invokes the Worker, and the sitemap is 365 KB over 3,687 URLs — rebuilt per request, inside a 10 ms CPU budget.
+- **A detail page with no subject must answer 404**, via `useMissingSubjectStatus` (`app/composables/usePageSeo.ts`). Every real entity is prerendered, so the Worker only renders `/episode/99999` and friends — and it will happily serve the friendly 找不到… body under a 200, i.e. a soft 404. The old host returned a 404 status by simply not having the file; nothing does that for us now. Any new detail page needs the same call.
+- **That 404 path is the one place the 10 ms CPU budget is at risk**, and it is unmeasured in production. `buildEpisodeView` / `buildCharacterView` / `buildPlotlineView` all `await loadDataset()` *before* checking whether the subject exists, so a miss parses the full ~1.8 MB tier — and `_corePromise`/`_fullPromise` cache per **isolate**, so every cold isolate pays it again. Only invalid URLs are affected, never real traffic, which is why it is documented rather than pre-emptively fixed. Check Cloudflare's per-invocation CPU metric after the first real deploy; if it bites, the fix is an existence check against `loadCore()` (episodes live in the core tier) before touching the full one.
 - **Prerender routes live under `$production`.** At the top level their 4,300 entries get inlined into Nuxt's virtual route-rules module and Rollup blows its parser stack on every `pnpm dev`.
 - **Sitemap URLs are passed decoded**, because `@nuxtjs/sitemap` escapes each `<loc>` itself; handing it encoded paths yields `%25E4%25B8%2581…`.
 - **`app/utils/indexable.ts` is shared on purpose.** nuxt.config uses it to pick which characters the sitemap advertises; `character/[id].vue` uses the same predicate for `useRobotsRule()`. ~616 roster footnotes are served but `noindex, follow`, so a page the sitemap promotes can never be one that refuses indexing. Pass `useRobotsRule` a directive **string**: its object form drops false-valued keys, so `{ index: false }` silently emits nothing rather than `noindex`.
@@ -77,5 +84,5 @@ Character search aliases are assembled in `build-data.mjs` (`attachAliases`) fro
 
 - Package manager is **pnpm** (`packageManager` pinned). Node 22 in CI.
 - ESLint uses Nuxt's flat config with stylistic rules: **no comma dangle**, 1tbs brace style. Match the terse, comment-rich style of the existing scripts.
-- The site is served from the custom domain `comehomelovelb.williamchong.cloud`, i.e. **from the root**, so `app.baseURL` is `/`. The deploy workflow still derives `NUXT_APP_BASE_URL` (Pages base path, trailing slash) and `NUXT_SITE_URL` (Pages origin) from `actions/configure-pages`, which reads them from the repo's Pages settings — so the custom domain is configured there and nowhere else, and the wiring falls back to `/come-home-love-lb/` on `github.io` if it's ever removed. `public/CNAME` records the domain in-repo (GitHub Actions deploys read the setting, not the file). Locally both default to `/` and the production origin.
+- The site is served from `comehomelovelb.williamchong.cloud`, i.e. **from the root**, so `app.baseURL` stays at its `/` default and `site.url` is a literal in `nuxt.config.ts`. A Worker owns its whole hostname, so — unlike the GitHub Pages project site this replaced — there is no `/<repo>/` base path to derive and no `NUXT_APP_BASE_URL` / `NUXT_SITE_URL` plumbing in the deploy workflow. Worker config lives in `wrangler.jsonc`; deploys need the `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` repo secrets.
 - This is a non-official fan project; episode/character data is sourced from the wikis and © their rights holders.

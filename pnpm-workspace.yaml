@@ -4,3 +4,7 @@ allowBuilds:
   esbuild: false
   unrs-resolver: false
   vue-demi: false
+  # wrangler's local runtime — its postinstall fetches the platform binary that
+  # `wrangler dev` (and the local D1 emulation behind it) runs on, so unlike the
+  # others here it genuinely has to build.
+  workerd: true

@@ -1,0 +1,33 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "come-home-love-lb",
+  "main": ".output/server/index.mjs",
+  // Keep in step with `compatibilityDate` in nuxt.config.ts — Nitro does not
+  // read one from the other, so bumping only one silently desyncs them.
+  "compatibility_date": "2026-06-30",
+  // Nitro's cloudflare preset detects this flag here and switches from unenv
+  // polyfills to workerd's native Node built-ins (see `enableNodeCompat`).
+  "compatibility_flags": ["nodejs_compat"],
+
+  // Prerendered HTML + the client bundle. `run_worker_first` is deliberately
+  // NOT set: at its default (false) Cloudflare matches this manifest before
+  // invoking the Worker, so a page view never runs it — and asset requests are
+  // neither billed nor counted against the free plan's 100k requests/day. That
+  // leaves the whole allowance for the vote API. Turning `run_worker_first` on
+  // would silently move every page view onto that meter.
+  "assets": {
+    "binding": "ASSETS",
+    "directory": ".output/public"
+  },
+
+  // Deploys to <name>.<subdomain>.workers.dev. The production hostname is NOT
+  // declared here on purpose — pointing comehomelovelb.williamchong.cloud at
+  // this Worker is a DNS change to make deliberately, once the workers.dev
+  // build has been checked over. Add it then:
+  //   "routes": [{ "pattern": "comehomelovelb.williamchong.cloud", "custom_domain": true }]
+  "workers_dev": true,
+
+  "observability": {
+    "enabled": true
+  }
+}
