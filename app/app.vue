@@ -74,17 +74,25 @@ useSeoMeta({
 
     <UFooter>
       <template #left>
-        <p class="text-sm text-muted">
-          資料來源：<ULink
-            :to="WIKIVERSITY_SOURCE"
-            target="_blank"
-            class="underline underline-offset-2 hover:text-highlighted"
-          >維基學院</ULink>／<ULink
-            :to="WIKIPEDIA_SOURCE"
-            target="_blank"
-            class="underline underline-offset-2 hover:text-highlighted"
-          >維基百科</ULink> · 非官方粉絲項目
-        </p>
+        <div class="text-sm text-muted">
+          <p>
+            資料來源：<ULink
+              :to="WIKIVERSITY_SOURCE"
+              target="_blank"
+              class="underline underline-offset-2 hover:text-highlighted"
+            >維基學院</ULink>／<ULink
+              :to="WIKIPEDIA_SOURCE"
+              target="_blank"
+              class="underline underline-offset-2 hover:text-highlighted"
+            >維基百科</ULink> · 非官方粉絲項目
+          </p>
+          <!-- The one thing this site stores about anyone. Said plainly and in
+               the footer rather than behind a policy link, because it is one
+               sentence long and there is nothing else to disclose. -->
+          <p class="mt-1 text-xs">
+            投票只儲存一組匿名識別碼，不設帳戶、不記錄 IP、不作追蹤。
+          </p>
+        </div>
       </template>
 
       <template #right>

@@ -25,3 +25,6 @@ logs
 .env
 .env.*
 !.env.example
+
+# Local Worker secrets for `wrangler dev` (production uses `wrangler secret put`)
+.dev.vars

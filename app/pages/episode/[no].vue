@@ -115,6 +115,12 @@ useSchemaOrg(computed(() => (ep.value
         {{ ep.date }} · 編劇 {{ ep.writers.join('、') || '—' }}
       </p>
 
+      <VoteButtons
+        :subject="subjectToken('episodes', ep.no)"
+        :label="`第${ep.no}集`"
+        class="mt-3 self-start"
+      />
+
       <UButton
         v-if="watchUrl"
         :to="watchUrl"

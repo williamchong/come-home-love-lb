@@ -78,6 +78,15 @@ const chips = computed(() => {
  * tighter than the menu's because chips wrap barely two to a sidebar row.
  */
 const BROWSE_PER_SECTION = 6
+
+// Which question the head of each section answers — see `useFacetIndex`. Only
+// offered once there are scores to order by; the omnibox follows the same state.
+const facetOrder = useFacetOrder()
+const { status: voteStatus } = useVotes()
+const toggleFacetOrder = () => {
+  facetOrder.value = facetOrder.value === 'count' ? 'score' : 'count'
+}
+
 const browse = computed(() => {
   const chosen = new Set(tokens.value)
   return sections.value
@@ -210,6 +219,21 @@ const years = computed(() => props.ds.facets.years.map(y => Number(y.value)))
       v-memo="[browse]"
       class="flex-1 min-h-0 overflow-y-auto border-t border-default pt-3 -mr-2 pr-2 flex flex-col gap-3"
     >
+      <div
+        v-if="voteStatus === 'ready'"
+        class="flex justify-end -mt-1"
+      >
+        <UButton
+          size="xs"
+          color="neutral"
+          variant="ghost"
+          :icon="facetOrder === 'count' ? 'i-lucide-hash' : 'i-lucide-thumbs-up'"
+          :aria-label="`改為依${facetOrder === 'count' ? '得分' : '集數'}排序`"
+          @click="toggleFacetOrder()"
+        >
+          依{{ facetOrder === 'count' ? '集數' : '得分' }}
+        </UButton>
+      </div>
       <div
         v-for="section in browse"
         :key="section.label"

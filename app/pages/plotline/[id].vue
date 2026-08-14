@@ -105,6 +105,12 @@ useSchemaOrg(computed(() => (pl.value ? [homeBreadcrumb(pl.value.name)] : [])))
         {{ pl.summary }}
       </p>
 
+      <VoteButtons
+        :subject="subjectToken('plotlines', pl.id)"
+        :label="pl.name"
+        class="mt-3"
+      />
+
       <div
         v-if="milestones.length"
         class="mt-4 flex flex-wrap gap-2"

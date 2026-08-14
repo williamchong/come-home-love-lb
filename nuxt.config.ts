@@ -1,7 +1,8 @@
 import { readFileSync } from 'node:fs'
-import type { Character, Episode, Plotline } from './app/types'
+import type { Character, Episode, Plotline, Tag } from './app/types'
 import { SITE_DESCRIPTION, SITE_LOCALE, SITE_TITLE } from './app/types'
 import { isIndexableCharacter } from './app/utils/indexable'
+import { subjectToken } from './shared/utils/subject'
 
 // https://nuxt.com/docs/api/configuration/nuxt-config
 
@@ -25,6 +26,56 @@ const readData = <T>(name: string): T =>
  */
 const CRAWLER_ROUTES = ['/robots.txt', '/sitemap.xml', '/__sitemap__/style.xsl']
 
+// Read once at module scope: `siteRoutes` enumerates pages out of these and
+// `voteSubjects` enumerates votable ids, and parsing ~1.8 MB twice a build buys
+// nothing.
+const episodes = readData<Episode[]>('episodes')
+const characters = readData<Character[]>('characters')
+const plotlines = readData<Plotline[]>('plotlines')
+const tags = readData<Tag[]>('tags')
+
+const distinct = (values: string[]) => [...new Set(values)]
+
+/**
+ * 家庭・機構 and 編劇 have no file of their own — the facet *is* whatever the
+ * episodes name, which is exactly how `useDataset` counts them into
+ * `facets.groups` / `facets.writers`. Derived once here because three things
+ * need the same list: the pages to prerender, the sitemap, and the vote
+ * allowlist. (`groups.json` is not that list: it is loaded by the full tier and
+ * read by nothing, and its labels don't match these tokens.)
+ */
+const groupLabels = distinct(episodes.flatMap(e => e.groupIds))
+const writerNames = distinct(episodes.flatMap(e => e.writers))
+
+/**
+ * Every subject a vote may name, as `key:value`, inlined into the Worker via
+ * `runtimeConfig` so `POST /api/vote` can reject anything else.
+ *
+ * Without it the table fills with arbitrary strings from anyone holding curl,
+ * and the score snapshot — which every visitor downloads — is what carries them
+ * back out. It is built from the same files the pages are built from, so a
+ * renamed entity can't leave a votable id behind.
+ *
+ * Inlined as *config* rather than imported by the route on purpose: config is
+ * evaluated with the Worker's global scope, against the 1 s startup budget,
+ * where importing `episodes.json` from the handler would put a 1 MB parse
+ * inside a request's 10 ms.
+ *
+ * 家庭・機構 comes from `episode.groupIds`, not `groups.json` — the latter is
+ * loaded by the full dataset tier but read by nothing, while `groupIds` is what
+ * `useDataset` counts into `facets.groups` and therefore what a chip carries.
+ */
+function voteSubjects(): string[] {
+  return [
+    ...episodes.map(e => subjectToken('episodes', e.no)),
+    ...characters.map(c => subjectToken('characters', c.id)),
+    ...plotlines.map(p => subjectToken('plotlines', p.id)),
+    ...tags.map(t => subjectToken('tags', t.id)),
+    ...groupLabels.map(g => subjectToken('groups', g)),
+    ...writerNames.map(w => subjectToken('writers', w))
+  ]
+}
+
 /**
  * Build-time route enumeration, shared by the prerenderer and the sitemap.
  *
@@ -36,10 +87,6 @@ const CRAWLER_ROUTES = ['/robots.txt', '/sitemap.xml', '/__sitemap__/style.xsl']
  * block below.
  */
 function siteRoutes() {
-  const episodes = readData<Episode[]>('episodes')
-  const characters = readData<Character[]>('characters')
-  const plotlines = readData<Plotline[]>('plotlines')
-
   // Plot lines list members by name, and name === id on the roster, so a
   // membership lookup doubles as "this character is worth linking to".
   const inPlotline = new Set(plotlines.flatMap(p => p.characters))
@@ -49,6 +96,14 @@ function siteRoutes() {
 
   const episodeRoutes = episodes.map(e => `/episode/${e.no}`)
   const plotlineRoutes = plotlines.map(p => `/plotline/${p.id}`)
+  // The facets that finally have somewhere to be. Ids and labels carry CJK,
+  // spaces and brackets, so both lists below encode or decode per their own
+  // rule — same as the character routes.
+  const facetPaths = [
+    ...tags.map(t => `/tag/${t.id}`),
+    ...groupLabels.map(g => `/group/${g}`),
+    ...writerNames.map(w => `/writer/${w}`)
+  ]
 
   return {
     /**
@@ -60,7 +115,8 @@ function siteRoutes() {
       ...CRAWLER_ROUTES,
       ...episodeRoutes,
       ...plotlineRoutes,
-      ...characters.map(c => `/character/${encodeURIComponent(c.id)}`)
+      ...characters.map(c => `/character/${encodeURIComponent(c.id)}`),
+      ...facetPaths.map(p => p.split('/').map(encodeURIComponent).join('/'))
     ],
     /**
      * The subset worth indexing. Left **decoded**: @nuxtjs/sitemap escapes each
@@ -70,7 +126,8 @@ function siteRoutes() {
       '/',
       ...episodeRoutes,
       ...plotlineRoutes,
-      ...indexableCharacters.map(c => `/character/${c.id}`)
+      ...indexableCharacters.map(c => `/character/${c.id}`),
+      ...facetPaths
     ]
   }
 }
@@ -134,6 +191,20 @@ export default defineNuxtConfig({
     name: SITE_TITLE,
     description: SITE_DESCRIPTION,
     defaultLocale: SITE_LOCALE
+  },
+
+  /**
+   * Server-only — none of this reaches the browser (that would need `public`).
+   *
+   * `voteSecret` signs the anonymous voter cookie; set it in production with
+   * `wrangler secret put NUXT_VOTE_SECRET`. Empty here so a local `wrangler dev`
+   * starts without ceremony — `server/utils/voter.ts` refuses to issue or trust
+   * a cookie signed with an empty key, so an unset secret disables voting
+   * rather than accepting forged ids.
+   */
+  runtimeConfig: {
+    voteSecret: '',
+    voteSubjects: voteSubjects()
   },
 
   routeRules: {

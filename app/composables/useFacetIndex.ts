@@ -7,15 +7,24 @@ import { FACET_KEYS, emptyFacets, type FacetKey, type FilterState } from './useE
 
 const isFacetKey = (v: string): v is FacetKey => (FACET_KEYS as readonly string[]).includes(v)
 
-/** `key:value` — the single string every selection, wherever made, is modelled as. */
-export const facetToken = (key: FacetKey, value: string) => `${key}:${value}`
+/**
+ * `key:value` — the single string every selection, wherever made, is modelled as.
+ *
+ * Delegates to `subjectToken` (`shared/utils/subject.ts`) rather than spelling
+ * the template again, so a chip and a vote can never name one entity two ways.
+ * The call is also the check that keeps them compatible: it only compiles while
+ * every `FacetKey` is a `SubjectKey`.
+ */
+export const facetToken = (key: FacetKey, value: string) => subjectToken(key, value)
 
-/** Split on the *first* colon only: group and writer values are raw labels. */
+/**
+ * The filter half of `parseSubject` — same split, narrower vocabulary. Built on
+ * it rather than repeating the parse, so `episodes:1234` resolves as a subject
+ * and is rejected here, which is exactly the distinction worth keeping.
+ */
 export function parseToken(token: string): { key: FacetKey, value: string } | null {
-  const i = token.indexOf(':')
-  if (i < 0) return null
-  const key = token.slice(0, i)
-  return isFacetKey(key) ? { key, value: token.slice(i + 1) } : null
+  const parsed = parseSubject(token)
+  return parsed && isFacetKey(parsed.key) ? { key: parsed.key, value: parsed.value } : null
 }
 
 export interface FacetItem extends FacetOption {
@@ -80,22 +89,43 @@ const SECTIONS: Section[] = [
 ]
 
 /**
- * Every facet option from every type, grouped by section and count-sorted within
- * one. Nothing here is capped or filtered: the panel's browse block takes the
- * head of each section, the omnibox searches the whole of it.
+ * What the head of each section means: how often a facet appears, or how well
+ * it is liked. Shared state so the panel's toggle also reorders the omnibox,
+ * which ranks over this same index.
+ */
+export type FacetOrder = 'count' | 'score'
+
+export const useFacetOrder = () => useState<FacetOrder>('facet-order', () => 'count')
+
+/**
+ * Every facet option from every type, grouped by section and sorted within one.
+ * Nothing here is capped or filtered: the panel's browse block takes the head of
+ * each section, the omnibox searches the whole of it.
+ *
+ * Count is the default and stays so. It is a real answer to "who is this show
+ * about", it is available before any network call, and on day one every score is
+ * zero — an empty ordering is worse than a meaningful one. 得分 is the other
+ * question: 熊大偉 appearing in 700 episodes is not the same as being loved.
  *
  * `ds` may be null while the full tier is still loading — the omnibox is
  * reachable before it lands, and answers episode numbers and titles meanwhile.
  */
 export function useFacetIndex(ds: MaybeRefOrGetter<Dataset | null | undefined>) {
+  const order = useFacetOrder()
+  const { net } = useVotes()
+
   const sections = computed<FacetSection[]>(() => {
     const data = toValue(ds)
     if (!data) return []
+    // Read inside the branch that uses it, so a count-ordered panel does not
+    // re-sort every section each time a vote lands anywhere on the site.
+    const byScore = order.value === 'score'
+      ? (a: FacetItem, b: FacetItem) => (net(b.token) ?? 0) - (net(a.token) ?? 0) || b.count - a.count
+      : undefined
+
     return SECTIONS
-      .map(s => ({
-        label: s.label,
-        icon: s.icon,
-        items: s.options(data).map((o): FacetItem => ({
+      .map((s) => {
+        const items = s.options(data).map((o): FacetItem => ({
           ...o,
           token: facetToken(s.key, o.value),
           section: s.label,
@@ -103,7 +133,10 @@ export function useFacetIndex(ds: MaybeRefOrGetter<Dataset | null | undefined>) 
           tone: s.tone?.(data, o.value),
           color: s.color
         }))
-      }))
+        // Options arrive count-sorted from `useDataset`; only re-sort when the
+        // question changed.
+        return { label: s.label, icon: s.icon, items: byScore ? items.sort(byScore) : items }
+      })
       .filter(s => s.items.length)
   })
 

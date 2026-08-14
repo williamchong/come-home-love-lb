@@ -88,6 +88,12 @@ useSchemaOrg(computed(() => (ch.value ? [homeBreadcrumb(ch.value.name)] : [])))
         {{ ch.bio }}
       </p>
 
+      <VoteButtons
+        :subject="subjectToken('characters', ch.id)"
+        :label="ch.name"
+        class="mt-3"
+      />
+
       <USeparator class="my-6" />
 
       <section

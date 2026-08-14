@@ -309,9 +309,78 @@ function toFeaturedItem(ds: Dataset, f: FeaturedRef): FeaturedItem | null {
     meta: [TAG_KIND_LABEL[tag.kind], tag.guestActor].filter(Boolean).join('・'),
     episodeCount: tag.episodeNos.length,
     tone: TAG_TONES.get(tag.id),
-    // no per-tag page exists, so the card opens the list already filtered to it
-    to: `/?tags=${encodeURIComponent(tag.id)}`
+    to: `/tag/${encodeURIComponent(tag.id)}`
   }
+}
+
+/**
+ * The facet kinds that have a page of their own but no entity behind them —
+ * everything the panel offers except 角色 and 故事線, which have real records.
+ */
+export type FacetViewKey = 'tags' | 'groups' | 'writers'
+
+/**
+ * A facet's own page: what it is called, and every episode carrying it.
+ *
+ * 節日 / 客串 / 里程碑 / 家庭・機構 / 編劇 were filters and nothing else — 迎新年
+ * and 波比與群姐 could narrow the list but had nowhere to *be*, so nothing linked
+ * to them, the sitemap couldn't offer them, and there was no surface to vote on.
+ * One shape covers all five: they differ only in how their episodes are found.
+ */
+export interface FacetView extends EpisodeCardList {
+  label: string
+  /** Context line under the title — 節日, 客串・演員 … Empty where there is none. */
+  meta: string
+  /** Free text under the heading, where the source has any. */
+  summary?: string
+  /**
+   * The `key:value` token this page stands for. One string doing three jobs:
+   * the filter it links to, the playlist its cards hand on, and the vote
+   * subject — which is the whole reason `facetToken` and `subjectToken` are the
+   * same vocabulary.
+   */
+  token: string
+  tone?: EntityTone
+}
+
+/** How each kind finds its episodes. Keyed so the three routes share one builder. */
+const FACET_EPISODES: Record<FacetViewKey, (ds: Dataset, value: string) => Episode[]> = {
+  tags: (ds, id) => (ds.tagsById.get(id)?.episodeNos ?? []).map(n => ds.episodesByNo.get(n)).filter(isPresent),
+  // 家庭・機構 and 編劇 have no record of their own — the facet *is* the set of
+  // episodes naming them, exactly as `useDataset` counts them into its facets.
+  groups: (ds, label) => ds.episodes.filter(e => e.groupIds.includes(label)),
+  writers: (ds, name) => ds.episodes.filter(e => e.writers.includes(name))
+}
+
+async function buildFacetView(key: FacetViewKey, value: string): Promise<FacetView | null> {
+  const ds = await loadDataset()
+  const episodes = FACET_EPISODES[key](ds, value).sort(bySort(DEFAULT_SORT))
+  const tag = key === 'tags' ? ds.tagsById.get(value) : undefined
+
+  // A tag is only real if the tag set knows it; a group or writer is real if any
+  // episode names it. Either way, no episodes means no page.
+  if (key === 'tags' && !tag) return null
+  if (!episodes.length) return null
+
+  return {
+    label: tag?.label ?? value,
+    meta: tag ? [TAG_KIND_LABEL[tag.kind], tag.guestActor].filter(Boolean).join('・') : FACET_VIEW_META[key],
+    summary: tag?.summary,
+    token: facetToken(key, value),
+    tone: tag ? TAG_TONES.get(tag.id) : (key === 'groups' ? tokenTone(value, ds.charactersById, true) : undefined),
+    ...toCardList(ds, episodes)
+  }
+}
+
+/** Fallback context line for the kinds with no record to describe them. */
+const FACET_VIEW_META: Record<FacetViewKey, string> = {
+  tags: TAG_KIND_LABEL.special,
+  groups: '家庭 / 機構',
+  writers: '編劇'
+}
+
+export function useFacetViewAsync(key: FacetViewKey, value: MaybeRefOrGetter<string>) {
+  return useAsyncData(() => `${key}-${toValue(value)}`, () => buildFacetView(key, toValue(value)), CLIENT_LAZY)
 }
 
 export interface HomeSeed extends EpisodeCardList {

@@ -8,6 +8,8 @@ Built with Nuxt 4 + Nuxt UI 4 + Tailwind 4. Deployed to Cloudflare Workers at <h
 
 The site is a static SPA over a pre-built dataset. There is **no live scraping at runtime** — data is parsed offline from open wiki sources into JSON committed under `app/data/`, and the app filters it client-side.
 
+The one exception is voting: episodes, characters, story lines, festivals, cameos, families and writers can each be voted up or down, and the episode list can be sorted by score. That runs on a small Cloudflare D1-backed API under `server/`, and is optional by construction — if it is unreachable the vote controls and the 得分 sort simply aren't there, and everything else works as before.
+
 ```
 scripts/fetch-sources.mjs   → caches raw wikitext to scripts/.cache/ (gitignored)
 scripts/build-data.mjs      → parses + cross-links + applies overlay → app/data/*.json
@@ -82,6 +84,20 @@ The production hostname is deliberately *not* declared in `wrangler.jsonc` yet �
 ```bash
 pnpm exec wrangler dev     # run the built output locally on :8787
 ```
+
+### Voting
+
+Votes live in Cloudflare D1. One-time setup:
+
+```bash
+pnpm exec wrangler d1 create come-home-love-lb-votes   # paste the id into wrangler.jsonc
+pnpm exec wrangler d1 execute come-home-love-lb-votes --remote --file server/database/schema.sql
+pnpm exec wrangler secret put NUXT_VOTE_SECRET         # signs the anonymous voter cookie
+```
+
+For local work, use `--local` instead of `--remote` and put `NUXT_VOTE_SECRET=anything` in `.dev.vars`. Without a secret the API returns 503 and the UI hides voting, rather than trusting unsigned cookies.
+
+Identity is one random id in a signed, `HttpOnly`, first-party cookie — no accounts, no IP stored. Duplicate voting is prevented by a primary key on `(voter_id, subject)`, so a repeat vote can only ever update or withdraw the existing one. It is beatable by clearing cookies, deliberately: the bar is honest duplicates and casual scripting.
 
 ## License
 

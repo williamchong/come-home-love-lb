@@ -1,7 +1,8 @@
 import type { CoreDataset } from './useDataset'
 import type { Episode } from '~/types'
+import type { ScoreMap } from '#shared/types/votes'
 
-export type SortKey = 'no-asc' | 'no-desc'
+export type SortKey = 'no-asc' | 'no-desc' | 'score-desc'
 
 /**
  * Newest first — an unfiltered visit is a browse, and the episodes worth landing
@@ -11,25 +12,46 @@ export type SortKey = 'no-asc' | 'no-desc'
  */
 export const DEFAULT_SORT: SortKey = 'no-desc'
 
-/** The sort options offered in the UI, kept beside `SortKey` so they can't drift apart. */
+/**
+ * The sort options offered in the UI, kept beside `SortKey` so they can't drift
+ * apart. `SortSelect` hides 得分 while there are no scores to order by.
+ */
 export const SORT_ITEMS: { label: string, value: SortKey }[] = [
   { label: '集數 ↓', value: 'no-desc' },
-  { label: '集數 ↑', value: 'no-asc' }
+  { label: '集數 ↑', value: 'no-asc' },
+  { label: '得分 ↓', value: 'score-desc' }
 ]
 
 /** What an unfiltered list of episodes in each order is called on the page. */
 export const SORT_HEADING: Record<SortKey, string> = {
   'no-desc': '最新集數',
-  'no-asc': '全部劇集'
+  'no-asc': '全部劇集',
+  'score-desc': '最高分'
 }
 
 /**
  * The list's ordering. Shared with the prerendered seed (`buildHomeSeed`), which
  * has to produce exactly what the filter shows in its default order or the
- * handover visibly reshuffles.
+ * handover visibly reshuffles — so the seed calls this with no `scores`, and
+ * must keep doing so: it is built at deploy time and cannot see a live score.
+ *
+ * `scores` is optional for the same reason it is optional everywhere else. With
+ * none, every episode nets zero and the comparator falls through to newest
+ * first, which is what a `?sort=score-desc` link should show when voting is
+ * unavailable.
  */
-export const bySort = (sort: SortKey) => (a: Episode, b: Episode) =>
-  (a.no - b.no) * (sort === 'no-desc' ? -1 : 1)
+export const bySort = (sort: SortKey, scores?: ScoreMap) => {
+  if (sort !== 'score-desc') {
+    return (a: Episode, b: Episode) => (a.no - b.no) * (sort === 'no-desc' ? -1 : 1)
+  }
+  // Unvoted sorts as zero here, unlike the control's「–」: an episode nobody has
+  // voted on has to sit somewhere, and that somewhere is level with the ties.
+  const net = (no: number) => netScore(scores?.[subjectToken('episodes', no)]) ?? 0
+  // The tie-break is load-bearing, not tidiness: nearly every episode sits at
+  // zero, and without a second key their order is whatever the source array
+  // happened to be — which changes under them on any recompute.
+  return (a: Episode, b: Episode) => (net(b.no) - net(a.no)) || (b.no - a.no)
+}
 
 /** Episodes per page of the result grid. */
 export const PAGE_SIZE = 48
@@ -151,6 +173,7 @@ export function activeFilterCount(s: FilterState) {
 export function useEpisodeFilter(ds: Ref<CoreDataset | null | undefined>) {
   const router = useRouter()
   const state = useFilterState()
+  const { scores } = useVotes()
 
   // hydrate from the arrival URL once (guarded so re-mounts don't clobber
   // edits) — client only, because the prerender pass has no query string and
@@ -223,7 +246,12 @@ export function useEpisodeFilter(ds: Ref<CoreDataset | null | undefined>) {
       if (q && !matchesQuery(ep, q)) return false
       return true
     })
-    return out.sort(bySort(s.sort))
+    // `scores.value` is read only in the branch that needs it, so this computed
+    // does not depend on the score map in the other orders — otherwise every
+    // vote cast anywhere would re-filter and re-sort all 2,868 episodes.
+    return s.sort === 'score-desc'
+      ? out.sort(bySort(s.sort, scores.value))
+      : out.sort(bySort(s.sort))
   })
 
   const pageCount = computed(() => Math.ceil(filtered.value.length / PAGE_SIZE))

@@ -20,6 +20,21 @@
     "directory": ".output/public"
   },
 
+  // Votes. `database_id` is a placeholder until the real database exists —
+  // create it with `pnpm exec wrangler d1 create come-home-love-lb-votes` and
+  // paste the id it prints. `wrangler dev` ignores the value and keeps its own
+  // copy under .wrangler/, so local work needs nothing from Cloudflare.
+  // Apply the schema with:
+  //   pnpm exec wrangler d1 execute come-home-love-lb-votes --file server/database/schema.sql
+  // (add --local for the dev copy, --remote for production).
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "come-home-love-lb-votes",
+      "database_id": "00000000-0000-0000-0000-000000000000"
+    }
+  ],
+
   // Deploys to <name>.<subdomain>.workers.dev. The production hostname is NOT
   // declared here on purpose — pointing comehomelovelb.williamchong.cloud at
   // this Worker is a DNS change to make deliberately, once the workers.dev
