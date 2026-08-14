@@ -17,7 +17,15 @@
   // would silently move every page view onto that meter.
   "assets": {
     "binding": "ASSETS",
-    "directory": ".output/public"
+    "directory": ".output/public",
+    // The prerender writes `episode/2000/index.html`, i.e. a directory per
+    // route, which under the default `auto-trailing-slash` is canonically
+    // `/episode/2000/` — so the asset server 307s every slashless request to
+    // it. But the sitemap and `<link rel="canonical">` both spell the slashless
+    // form, so every indexed URL pointed at a redirect. `drop-trailing-slash`
+    // serves `/episode/2000` directly, which is what those two already promise.
+    // The site root is exempt and stays `/`.
+    "html_handling": "drop-trailing-slash"
   },
 
   // Votes. `database_id` is a placeholder until the real database exists —
@@ -31,15 +39,17 @@
     {
       "binding": "DB",
       "database_name": "come-home-love-lb-votes",
-      "database_id": "00000000-0000-0000-0000-000000000000"
+      "database_id": "246fb072-a3b1-4232-b7ed-86ff74037937"
     }
   ],
 
-  // Deploys to <name>.<subdomain>.workers.dev. The production hostname is NOT
-  // declared here on purpose — pointing comehomelovelb.williamchong.cloud at
-  // this Worker is a DNS change to make deliberately, once the workers.dev
-  // build has been checked over. Add it then:
-  //   "routes": [{ "pattern": "comehomelovelb.williamchong.cloud", "custom_domain": true }]
+  // Deploys to <name>.<subdomain>.workers.dev, and to the production hostname
+  // below. `custom_domain: true` means Cloudflare owns the DNS record for that
+  // hostname and creates it on deploy, so this file — not the dashboard — is
+  // what declares where the Worker is served from.
+  "routes": [
+    { "pattern": "comehomelovelb.williamchong.cloud", "custom_domain": true }
+  ],
   "workers_dev": true,
 
   "observability": {
