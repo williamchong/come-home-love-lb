@@ -18,21 +18,18 @@
   "assets": {
     "binding": "ASSETS",
     "directory": ".output/public",
-    // The prerender writes `episode/2000/index.html`, i.e. a directory per
-    // route, which under the default `auto-trailing-slash` is canonically
-    // `/episode/2000/` — so the asset server 307s every slashless request to
-    // it. But the sitemap and `<link rel="canonical">` both spell the slashless
-    // form, so every indexed URL pointed at a redirect. `drop-trailing-slash`
-    // serves `/episode/2000` directly, which is what those two already promise.
-    // The site root is exempt and stays `/`.
+    // The prerender emits a directory per route (`episode/2000/index.html`),
+    // which the default `auto-trailing-slash` would make canonical as
+    // `/episode/2000/`, 307ing every slashless request. The sitemap and
+    // `<link rel="canonical">` both spell it slashless, so that is the form
+    // that has to serve. The site root is exempt and stays `/`.
     "html_handling": "drop-trailing-slash"
   },
 
-  // Votes. `database_id` is a placeholder until the real database exists —
-  // create it with `pnpm exec wrangler d1 create come-home-love-lb-votes` and
-  // paste the id it prints. `wrangler dev` ignores the value and keeps its own
-  // copy under .wrangler/, so local work needs nothing from Cloudflare.
-  // Apply the schema with:
+  // Votes. The id is committed because Cloudflare builds from the repo, so
+  // anything the deploy needs has to be in it; it is not a secret. Local runs
+  // (`pnpm dev:worker`) ignore the value and keep their own copy under
+  // .wrangler/, so local work needs nothing from Cloudflare. Apply the schema:
   //   pnpm exec wrangler d1 execute come-home-love-lb-votes --file server/database/schema.sql
   // (add --local for the dev copy, --remote for production).
   "d1_databases": [
@@ -43,10 +40,9 @@
     }
   ],
 
-  // Deploys to <name>.<subdomain>.workers.dev, and to the production hostname
-  // below. `custom_domain: true` means Cloudflare owns the DNS record for that
-  // hostname and creates it on deploy, so this file — not the dashboard — is
-  // what declares where the Worker is served from.
+  // `custom_domain: true` makes Cloudflare own the DNS record for the hostname
+  // and create it on deploy, so this file — not the dashboard — is what
+  // declares where the Worker is served from.
   "routes": [
     { "pattern": "comehomelovelb.williamchong.cloud", "custom_domain": true }
   ],

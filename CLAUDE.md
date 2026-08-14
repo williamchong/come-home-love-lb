@@ -13,11 +13,12 @@ pnpm install
 pnpm dev          # dev server at http://localhost:3000
 pnpm build        # → .output/public (prerendered) + .output/server (Worker); Nitro cloudflare_module preset; ~4,300 routes, several minutes
 pnpm preview      # serve the built output
+pnpm dev:worker   # wrangler dev on :8787 after a build — the only way to run server/
 pnpm lint         # eslint . (scripts/** and app/data/** are ignored)
 pnpm typecheck    # nuxt typecheck (vue-tsc)
 ```
 
-CI (`.github/workflows/ci.yml`) runs lint + typecheck + build on every push; run all three locally before committing. It does **not** deploy — Cloudflare Workers Builds is connected to the repo and builds `master` itself (`pnpm build` → `npx wrangler deploy`, configured in the dashboard, Node pinned by `.node-version`). So a deploy needs no repo secrets, and `wrangler.jsonc` is the single description of the Worker. `pnpm exec wrangler dev` serves the built output locally on :8787, which is the only way to exercise anything under `server/`.
+CI (`.github/workflows/ci.yml`) runs lint + typecheck + build on every push; run all three locally before committing. It does **not** deploy — Cloudflare Workers Builds is connected to the repo and builds `master` itself (`pnpm build` → `npx wrangler deploy`, configured in the dashboard, Node pinned by `.node-version`). So a deploy needs no repo secrets, and `wrangler.jsonc` is the single description of the Worker. `pnpm dev:worker` runs the Worker locally on :8787, which is the only way to exercise anything under `server/` — **not** a bare `pnpm exec wrangler dev`, which never binds the port (see the script's header for why, and don't re-derive it).
 
 ### Refreshing the dataset
 
@@ -65,7 +66,7 @@ The only runtime state on the site. Three Nitro routes, one table pair, and a si
 - **`/api/scores` must never touch the voter cookie.** Its response is shared-cached; a `Set-Cookie` on it would hand one visitor's identity to everyone after them. `resolveVoter` is called only from `vote.post.ts` and `me.get.ts`.
 - **The subject allowlist rides in `runtimeConfig`,** generated in `nuxt.config.ts` from the same JSON the pages come from. It is config rather than an import in the route on purpose: config is evaluated with the Worker's global scope against the 1 s startup budget, where importing `episodes.json` from a handler would put a 1 MB parse inside a request's 10 ms.
 - **An unset `NUXT_VOTE_SECRET` disables voting** rather than accepting forged cookies — `resolveVoter` returns null and the write routes 503. `/api/scores` reports that as `votingEnabled: false` so the client hides the controls instead of rendering ones that fail on click; scores stay visible. This is the state of every deploy made before `wrangler secret put NUXT_VOTE_SECRET`, so it is worth keeping correct. `wrangler dev` reads the secret from `.dev.vars`.
-- Local setup: `wrangler d1 execute come-home-love-lb-votes --local --file server/database/schema.sql`, then `pnpm exec wrangler dev`. Add `--remote` for production.
+- Local setup: `wrangler d1 execute come-home-love-lb-votes --local --file server/database/schema.sql`, then `pnpm dev:worker`. Add `--remote` for production.
 - Anti-abuse is **best-effort by design** and layered: localStorage (double-click), signed HttpOnly cookie, the primary key, and a per-voter hourly budget that only counts *new* subjects — changing or withdrawing a vote is never rate limited. No IP is stored, hashed or otherwise. Turnstile is the documented escalation if it is ever gamed.
 
 ### SEO (`@nuxtjs/seo`)
