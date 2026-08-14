@@ -73,16 +73,20 @@ const chips = computed(() => {
  * The controls above are deliberately compact, which leaves the desktop sidebar
  * mostly empty — and a lone search button says nothing about *what* it searches.
  * The browse block spends that space on the head of every facet type, so the
- * available axes are visible and one click away. Options are count-sorted
- * upstream, so the head of each list is also the part worth offering; the cap is
- * tighter than the menu's because chips wrap barely two to a sidebar row.
+ * available axes are visible and one click away. Options arrive sorted upstream
+ * — best-liked first, falling back to most-frequent where no one has voted — so
+ * the head of each list is also the part worth offering; the cap is tighter than
+ * the menu's because chips wrap barely two to a sidebar row.
  */
 const BROWSE_PER_SECTION = 6
 
-// Which question the head of each section answers — see `useFacetIndex`. Only
-// offered once there are scores to order by; the omnibox follows the same state.
+// Which question the head of each section answers — see `useFacetIndex`. 得分 is
+// the default and this toggle is the way back to 集數, so it is offered exactly
+// when the score order it toggles is the one in effect: a visit with no scores
+// on it is already showing the count order, and a button claiming to switch to
+// what is on screen is noise. The omnibox follows the same state.
 const facetOrder = useFacetOrder()
-const { status: voteStatus } = useVotes()
+const { scoresInPlay } = useVotes()
 const toggleFacetOrder = () => {
   facetOrder.value = facetOrder.value === 'count' ? 'score' : 'count'
 }
@@ -207,20 +211,25 @@ const years = computed(() => props.ds.facets.years.map(y => Number(y.value)))
       />
     </div>
 
-    <!-- Memoised on `browse` — its own dependency set. Without this the ~40
-         buttons re-render on every unrelated filter change (a year bound, the
-         配角出場 switch, a search term arriving from the palette), since a
-         slotted child is patched unconditionally — its slot compiles as
+    <!-- Memoised on everything this subtree reads, not just `browse`. Without a
+         memo the ~40 buttons re-render on every unrelated filter change (a year
+         bound, the 配角出場 switch, a search term arriving from the palette),
+         since a slotted child is patched unconditionally — its slot compiles as
          DYNAMIC_SLOTS inside the `v-for`, which `shouldUpdateComponent` takes
-         as an update before it compares any prop. `-mr-2 pr-2` parks the
-         scrollbar in the grid gutter so chips don't reflow when it appears. -->
+         as an update before it compares any prop.
+         `scoresInPlay` has to be listed even though `browse` derives from it:
+         `sections` only reads it through a short-circuit (`order === 'score' &&
+         scoresInPlay`), so once the toggle is on 集數 nothing under `browse`
+         depends on vote status, and a memo without it would strand the toggle
+         on screen after a snapshot failed. `-mr-2 pr-2` parks the scrollbar in
+         the grid gutter so chips don't reflow when it appears. -->
     <div
       v-if="isSidebar && browse.length"
-      v-memo="[browse]"
+      v-memo="[browse, scoresInPlay, facetOrder]"
       class="flex-1 min-h-0 overflow-y-auto border-t border-default pt-3 -mr-2 pr-2 flex flex-col gap-3"
     >
       <div
-        v-if="voteStatus === 'ready'"
+        v-if="scoresInPlay"
         class="flex justify-end -mt-1"
       >
         <UButton

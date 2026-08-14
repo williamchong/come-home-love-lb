@@ -5,12 +5,32 @@ import type { ScoreMap } from '#shared/types/votes'
 export type SortKey = 'no-asc' | 'no-desc' | 'score-desc'
 
 /**
- * Newest first — an unfiltered visit is a browse, and the episodes worth landing
- * on are the ones that just aired, not 2017's. Everything that has to agree with
- * the default reads it from here: the URL mirror omits it, `buildHomeSeed` orders
- * the prerendered seed by it, and the index heads that seed with its heading.
+ * 得分 first — the whole point of collecting votes is that they decide what an
+ * unfiltered visit lands on. Everything that has to agree with the default reads
+ * it from here: the URL mirror omits it, and `useEpisodeFilter` hydrates to it.
+ *
+ * Note what it deliberately does *not* reach: anything built without a score
+ * map. See `SCORELESS_SORT`.
  */
-export const DEFAULT_SORT: SortKey = 'no-desc'
+export const DEFAULT_SORT: SortKey = 'score-desc'
+
+/**
+ * The order used wherever there is no score map to sort by — and the one 得分
+ * degrades to when there never will be.
+ *
+ * Two kinds of caller need it. The prerendered lists — the home seed, a facet
+ * page's episodes, the omnibox's title matches — are built at deploy time and
+ * cannot see a live score, so they ask for newest-first outright rather than for
+ * an ordering they can't compute. And a visitor whose `/api/scores` never
+ * answered gets it through `useSortKey`, which is what keeps the promise that a
+ * failed vote API leaves the site behaving exactly as it did before voting
+ * existed.
+ *
+ * Its value is not a coincidence: `bySort('score-desc')` with no scores already
+ * falls through to precisely this comparator, so the seed still matches the
+ * default order at handover and only reshuffles once real scores arrive.
+ */
+export const SCORELESS_SORT: SortKey = 'no-desc'
 
 /**
  * The sort options offered in the UI, kept beside `SortKey` so they can't drift
@@ -31,14 +51,16 @@ export const SORT_HEADING: Record<SortKey, string> = {
 
 /**
  * The list's ordering. Shared with the prerendered seed (`buildHomeSeed`), which
- * has to produce exactly what the filter shows in its default order or the
- * handover visibly reshuffles — so the seed calls this with no `scores`, and
- * must keep doing so: it is built at deploy time and cannot see a live score.
+ * has to produce what the filter shows before any score has landed or the
+ * handover visibly reshuffles — so the seed calls this with `SCORELESS_SORT` and
+ * no `scores`, and must keep doing so: it is built at deploy time and cannot see
+ * a live score.
  *
  * `scores` is optional for the same reason it is optional everywhere else. With
- * none, every episode nets zero and the comparator falls through to newest
- * first, which is what a `?sort=score-desc` link should show when voting is
- * unavailable.
+ * none every episode nets zero and the comparator falls through to newest first,
+ * which is what the loading window shows before the first snapshot lands. A
+ * visit where scores never arrive doesn't reach this at all — `useSortKey`
+ * degrades the key itself, one layer up.
  */
 export const bySort = (sort: SortKey, scores?: ScoreMap) => {
   if (sort !== 'score-desc') {
@@ -46,7 +68,23 @@ export const bySort = (sort: SortKey, scores?: ScoreMap) => {
   }
   // Unvoted sorts as zero here, unlike the control's「–」: an episode nobody has
   // voted on has to sit somewhere, and that somewhere is level with the ties.
-  const net = (no: number) => netScore(scores?.[subjectToken('episodes', no)]) ?? 0
+  //
+  // Memoised per episode, which is not a micro-optimisation: a comparator runs
+  // ~33k times over 2,868 episodes, so the naive form builds ~66k
+  // `episodes:1234` strings *and* takes ~66k tracked reads through the reactive
+  // score map — which cost more than the sort itself (6.6 ms, against 0.8 ms
+  // memoised) on a computed that now re-runs on every filter interaction, not
+  // just on a vote. Safe because `bySort` is called once per sort pass and
+  // `scores` cannot change during one.
+  const cache = new Map<number, number>()
+  const net = (no: number) => {
+    let v = cache.get(no)
+    if (v === undefined) {
+      v = netScore(scores?.[subjectToken('episodes', no)]) ?? 0
+      cache.set(no, v)
+    }
+    return v
+  }
   // The tie-break is load-bearing, not tidiness: nearly every episode sits at
   // zero, and without a second key their order is whatever the source array
   // happened to be — which changes under them on any recompute.
@@ -150,6 +188,45 @@ export function useFilterState() {
 }
 
 /**
+ * The order the list is *actually* in, as a writable projection of `state.sort`.
+ *
+ * 得分 is the default now, which means it is also the order a visitor lands in
+ * on a visit where scores are not in play at all (`scoresInPlay`). Reading it
+ * back as `SCORELESS_SORT` there is what keeps the documented degradation
+ * intact: `SortSelect` drops the 得分 option and still has a label for what it
+ * is showing, the index heads the list 最新集數 rather than 最高分, and the rows
+ * are in the order both of them claim.
+ *
+ * Writes always go to the real state, so a visitor who picked 得分 on a working
+ * visit keeps that choice in the URL even if a later load can't honour it.
+ */
+export function useSortKey() {
+  const state = useFilterState()
+  const { scoresInPlay } = useVotes()
+  return computed<SortKey>({
+    get: () => (state.value.sort === 'score-desc' && !scoresInPlay.value ? SCORELESS_SORT : state.value.sort),
+    set: (v) => {
+      state.value.sort = v
+    }
+  })
+}
+
+/**
+ * The orders worth offering, which is `SORT_ITEMS` minus 得分 when scores are
+ * not in play.
+ *
+ * It lives here rather than in `SortSelect` because it is the other half of
+ * `useSortKey`, not a display detail: that getter rewrites 得分 to
+ * `SCORELESS_SORT` in exactly the state this drops the option, and the two only
+ * stay consistent together. Split across files, a menu could offer a value the
+ * getter refuses to read back — which a `USelectMenu` renders as no label at all.
+ */
+export function useSortItems() {
+  const { scoresInPlay } = useVotes()
+  return computed(() => SORT_ITEMS.filter(item => item.value !== 'score-desc' || scoresInPlay.value))
+}
+
+/**
  * The one definition of a cleared filter set, behind both the panel's 重設 and
  * the links that stand for a single facet (they replace the selection rather
  * than adding to it). Display preferences survive: sort order and 提及 widening
@@ -173,6 +250,7 @@ export function activeFilterCount(s: FilterState) {
 export function useEpisodeFilter(ds: Ref<CoreDataset | null | undefined>) {
   const router = useRouter()
   const state = useFilterState()
+  const sortKey = useSortKey()
   const { scores } = useVotes()
 
   // hydrate from the arrival URL once (guarded so re-mounts don't clobber
@@ -246,12 +324,18 @@ export function useEpisodeFilter(ds: Ref<CoreDataset | null | undefined>) {
       if (q && !matchesQuery(ep, q)) return false
       return true
     })
+    // `sortKey`, not `s.sort`: with 得分 the default, a visitor who can't reach
+    // the vote API has to be ordered by what the heading and the control say.
+    //
     // `scores.value` is read only in the branch that needs it, so this computed
     // does not depend on the score map in the other orders — otherwise every
-    // vote cast anywhere would re-filter and re-sort all 2,868 episodes.
-    return s.sort === 'score-desc'
-      ? out.sort(bySort(s.sort, scores.value))
-      : out.sort(bySort(s.sort))
+    // vote cast anywhere would re-filter and re-sort all 2,868 episodes. In the
+    // 得分 branch it necessarily does, which is the cost of the default: a vote
+    // moves the episode it was cast on, live, under the visitor who cast it.
+    const sort = sortKey.value
+    return sort === 'score-desc'
+      ? out.sort(bySort(sort, scores.value))
+      : out.sort(bySort(sort))
   })
 
   const pageCount = computed(() => Math.ceil(filtered.value.length / PAGE_SIZE))

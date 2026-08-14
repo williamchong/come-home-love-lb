@@ -14,8 +14,9 @@ import type { MyVotesResponse, ScoreMap, ScoresResponse, VoteResponse, VoteValue
  *   trip to learn something the response already told us.
  *
  * Everything degrades to "no voting": if the API is unreachable — no D1 binding,
- * no secret, offline — `available` stays false, the controls hide, and the site
- * filters exactly as it did before any of this existed.
+ * no secret, offline — `status` stays `off`, the controls hide, `scoresInPlay`
+ * turns every score-ordered surface back to the order it shipped in, and the
+ * site filters exactly as it did before any of this existed.
  */
 
 /** This browser's own votes, so the controls are right before the network answers. */
@@ -170,6 +171,24 @@ export function useVotes() {
   return {
     scores: computed(() => state.value.scores),
     status: computed(() => state.value.status),
+    /**
+     * Whether scores are part of this visit at all — the one question the
+     * surfaces that *order* by them should ask.
+     *
+     * It is exactly `status !== 'off'`, named because the reasoning is not in
+     * the comparison. `off` has two causes: the snapshot never arrived, or a
+     * deploy whose signing secret is unset. Only the first leaves nothing to
+     * sort by — but `VoteButtons` removes the whole control in both, the score
+     * along with the thumbs, so in the second the site would be ordering itself
+     * by numbers it shows nowhere. One line for both, drawn where the numbers
+     * are drawn, so every score-ordered surface turns off together rather than
+     * each deciding for itself.
+     *
+     * True while `loading`, deliberately. The map is merely empty then, which
+     * every score comparator already resolves to its own tie-break, so nothing
+     * has to reshuffle when the snapshot lands a tick later.
+     */
+    scoresInPlay: computed(() => state.value.status !== 'off'),
     net,
     myVote,
     vote

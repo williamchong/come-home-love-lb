@@ -4,7 +4,7 @@ import type { Dataset, TonedPlotline } from './useDataset'
 import { CATEGORY_LABEL, TAG_KIND_LABEL } from '~/types'
 import { characterTone } from '~/utils/entityTone'
 import { TAG_TONES } from '~/utils/tags'
-import { DEFAULT_SORT, bySort } from './useEpisodeFilter'
+import { SCORELESS_SORT, bySort } from './useEpisodeFilter'
 import { loadDataset } from './useDataset'
 
 /**
@@ -276,6 +276,14 @@ export interface FeaturedItem extends FeaturedRef {
   tone?: EntityTone
   /** Where the card goes. Only 故事線 and 角色 have pages; a tag opens its filtered list. */
   to: string
+  /**
+   * The `key:value` subject this card stands for, so the row can order itself by
+   * what people voted for. Resolved here, in the payload, rather than derived on
+   * the page: `FeaturedKind` is singular (`plotline`) and a subject key is plural
+   * (`plotlines`), and this is the one place that already knows which catalogue
+   * each entry came out of.
+   */
+  token: string
 }
 
 /**
@@ -290,7 +298,7 @@ function toFeaturedItem(ds: Dataset, f: FeaturedRef): FeaturedItem | null {
     if (!pl) return null
     return {
       ...f, label: pl.name, meta: CATEGORY_LABEL[pl.category], episodeCount: pl.episodes.length,
-      tone: pl.tone, to: `/plotline/${pl.id}`
+      tone: pl.tone, to: `/plotline/${pl.id}`, token: subjectToken('plotlines', pl.id)
     }
   }
   if (f.kind === 'character') {
@@ -298,7 +306,8 @@ function toFeaturedItem(ds: Dataset, f: FeaturedRef): FeaturedItem | null {
     if (!ch) return null
     return {
       ...f, label: ch.name, meta: ch.actor || ch.group || '角色', episodeCount: ch.episodeNos?.length ?? 0,
-      tone: characterTone(ch), to: `/character/${encodeURIComponent(ch.id)}`
+      tone: characterTone(ch), to: `/character/${encodeURIComponent(ch.id)}`,
+      token: subjectToken('characters', ch.id)
     }
   }
   const tag = ds.tagsById.get(f.id)
@@ -309,7 +318,8 @@ function toFeaturedItem(ds: Dataset, f: FeaturedRef): FeaturedItem | null {
     meta: [TAG_KIND_LABEL[tag.kind], tag.guestActor].filter(Boolean).join('・'),
     episodeCount: tag.episodeNos.length,
     tone: TAG_TONES.get(tag.id),
-    to: `/tag/${encodeURIComponent(tag.id)}`
+    to: `/tag/${encodeURIComponent(tag.id)}`,
+    token: subjectToken('tags', tag.id)
   }
 }
 
@@ -354,7 +364,8 @@ const FACET_EPISODES: Record<FacetViewKey, (ds: Dataset, value: string) => Episo
 
 async function buildFacetView(key: FacetViewKey, value: string): Promise<FacetView | null> {
   const ds = await loadDataset()
-  const episodes = FACET_EPISODES[key](ds, value).sort(bySort(DEFAULT_SORT))
+  // Prerendered, so there is no score map to order by — see `SCORELESS_SORT`.
+  const episodes = FACET_EPISODES[key](ds, value).sort(bySort(SCORELESS_SORT))
   const tag = key === 'tags' ? ds.tagsById.get(value) : undefined
 
   // A tag is only real if the tag set knows it; a group or writer is real if any
@@ -392,8 +403,10 @@ export interface HomeSeed extends EpisodeCardList {
 async function buildHomeSeed(count: number): Promise<HomeSeed> {
   const ds = await loadDataset()
   // Ordered rather than trusted: the seed has to match what `useEpisodeFilter`
-  // shows in its default order, or the handover visibly reshuffles.
-  const episodes = [...ds.episodes].sort(bySort(DEFAULT_SORT)).slice(0, count)
+  // shows, or the handover visibly reshuffles. It asks for `SCORELESS_SORT`
+  // rather than the default now that the default is 得分 — this runs at deploy
+  // time, and the two agree until the first snapshot lands on the client.
+  const episodes = [...ds.episodes].sort(bySort(SCORELESS_SORT)).slice(0, count)
   return {
     meta: { total: ds.meta.total },
     // Resolved here rather than in the page so the 精選 row is part of the

@@ -95,31 +95,45 @@ const SECTIONS: Section[] = [
  */
 export type FacetOrder = 'count' | 'score'
 
-export const useFacetOrder = () => useState<FacetOrder>('facet-order', () => 'count')
+/**
+ * 得分 by default, matching the list's own default order.
+ *
+ * Nothing has to guard that: the 得分 comparator tie-breaks on `count`, and an
+ * option nobody has voted on nets zero — so a section with no votes in it is
+ * *already* in the count order it shipped in, and a site whose scores never
+ * loaded shows the panel exactly as it looked before. Votes only pull the
+ * well-liked few above that baseline, which is the whole intent.
+ */
+export const useFacetOrder = () => useState<FacetOrder>('facet-order', () => 'score')
 
 /**
  * Every facet option from every type, grouped by section and sorted within one.
  * Nothing here is capped or filtered: the panel's browse block takes the head of
  * each section, the omnibox searches the whole of it.
  *
- * Count is the default and stays so. It is a real answer to "who is this show
- * about", it is available before any network call, and on day one every score is
- * zero — an empty ordering is worse than a meaningful one. 得分 is the other
- * question: 熊大偉 appearing in 700 episodes is not the same as being loved.
+ * 得分 leads, because 熊大偉 appearing in 700 episodes is not the same as being
+ * loved. Count is what it degrades to rather than a separate default: it is a
+ * real answer to "who is this show about", it is available before any network
+ * call, and on day one every score is zero — so it is what the tie-break below
+ * leaves behind wherever the votes say nothing yet.
  *
  * `ds` may be null while the full tier is still loading — the omnibox is
  * reachable before it lands, and answers episode numbers and titles meanwhile.
  */
 export function useFacetIndex(ds: MaybeRefOrGetter<Dataset | null | undefined>) {
   const order = useFacetOrder()
-  const { net } = useVotes()
+  const { net, scoresInPlay } = useVotes()
 
   const sections = computed<FacetSection[]>(() => {
     const data = toValue(ds)
     if (!data) return []
-    // Read inside the branch that uses it, so a count-ordered panel does not
-    // re-sort every section each time a vote lands anywhere on the site.
-    const byScore = order.value === 'score'
+    // `scoresInPlay` because 得分 is the default: a visit with no scores on it
+    // has to fall all the way back to the count order the panel shipped in,
+    // rather than order itself by numbers it is not showing anywhere.
+    //
+    // `net` is read inside the branch that uses it, so a count-ordered panel
+    // does not re-sort every section each time a vote lands anywhere on the site.
+    const byScore = order.value === 'score' && scoresInPlay.value
       ? (a: FacetItem, b: FacetItem) => (net(b.token) ?? 0) - (net(a.token) ?? 0) || b.count - a.count
       : undefined
 

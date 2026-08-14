@@ -2,7 +2,7 @@ import type { CommandPaletteGroup, CommandPaletteItem } from '@nuxt/ui'
 import type { CoreDataset } from './useDataset'
 import type { FacetItem, FacetSection } from './useFacetIndex'
 import { SECTION_LABEL, useFacetTokens } from './useFacetIndex'
-import { DEFAULT_SORT, bySort, matchesTitle, useFilterState } from './useEpisodeFilter'
+import { SCORELESS_SORT, bySort, matchesTitle, useFilterState } from './useEpisodeFilter'
 import { FACET_TEXT_CLASS } from '~/types'
 
 /**
@@ -48,7 +48,8 @@ const isEpisodeNo = (q: string) => /^\d+$/.test(q)
 /**
  * How well a facet option answers `q`, lowest first; -1 for no match. The tiers
  * are what keeps 安凌線 above 平安夜 when you type 安: a whole-label hit outranks
- * one buried in an alias, and only then does episode count break the tie.
+ * one buried in an alias, and only then does the order the section arrived in
+ * break the tie — best-liked first, falling back to most-frequent.
  *
  * The fields are the ones the old menu handed `filter-fields`, section included,
  * so typing 節日 still lists every festival.
@@ -71,7 +72,8 @@ function rank(item: FacetItem, q: string): number {
  *
  * Groups are `ignoreFilter`, i.e. the component renders them verbatim: matching
  * happens here instead of in its Fuse index, so the ordering stays the
- * count-then-relevance one the rest of the app uses, and so the same option
+ * section-order-then-relevance one the rest of the app uses — whatever
+ * `useFacetOrder` currently means, 得分 by default — and so the same option
  * carries the same token, hue and icon as it does in the panel.
  */
 export function useOmniboxGroups(
@@ -122,7 +124,7 @@ export function useOmniboxGroups(
     const exact = isEpisodeNo(q) ? ds.episodesByNo.get(Number(q)) : undefined
     const matches = ds.episodes
       .filter(ep => ep.no !== exact?.no && matchesTitle(ep, q))
-      .sort(bySort(DEFAULT_SORT))
+      .sort(bySort(SCORELESS_SORT))
       .slice(0, exact ? PER_GROUP - 1 : PER_GROUP)
     return [...(exact ? [exact] : []), ...matches].map(ep => ({
       label: ep.title,
@@ -158,7 +160,7 @@ export function useOmniboxGroups(
         items: s.items
           .map(item => ({ item, r: rank(item, q) }))
           .filter(x => x.r >= 0)
-          // sort is stable, so options keep their count order within a tier
+          // sort is stable, so options keep the section's own order within a tier
           .sort((a, b) => a.r - b.r)
           .slice(0, PER_GROUP)
           .map(x => facetItem(x.item))

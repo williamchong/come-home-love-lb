@@ -35,9 +35,31 @@ const panelProps = computed(() => full.value
   ? { ds: full.value, activeCount: activeCount.value, resultCount: filtered.value.length }
   : null)
 
-// 精選: curated entry points from `data/overlay.json → featured`, resolved into
-// the prerendered seed so the first screen is a browsable index.
-const featured = computed(() => seed.value?.featured ?? [])
+/**
+ * 精選: curated entry points from `data/overlay.json → featured`, resolved into
+ * the prerendered seed so the first screen is a browsable index — reordered by
+ * what people actually voted for, since a row of eight cards can put the
+ * best-liked one first at no cost in space.
+ *
+ * The overlay's own order survives as the tie-break, and does the whole job on
+ * its own until scores exist: `Array.sort` is stable, so an unvoted card keeps
+ * the position the curation gave it, and a scoreless site renders exactly the
+ * row it rendered before. That is also what makes this hydration-safe — scores
+ * only land after `onNuxtReady`, so the prerendered HTML and the client's first
+ * render agree on the curated order and the sort arrives later as a patch.
+ *
+ * `scoresInPlay` for the same reason the list's sort and the panel's browse
+ * block ask it: a visit showing no scores anywhere shows the curated row.
+ *
+ * Copied before sorting: `seed` is the payload, and sorting in place would
+ * mutate it under `useAsyncData`.
+ */
+const { net, scoresInPlay } = useVotes()
+const featured = computed(() => {
+  const cards = seed.value?.featured ?? []
+  if (!scoresInPlay.value) return cards
+  return [...cards].sort((a, b) => (net(b.token) ?? 0) - (net(a.token) ?? 0))
+})
 
 /**
  * The list an opened card hands on to the episode page as `?list=`.
@@ -58,8 +80,11 @@ const list = computed(() => (tokens.value.length === 1 && activeCount.value === 
   ? tokens.value[0]!
   : null))
 
+// `useSortKey`, not `state.sort`: the heading has to name the order the rows are
+// in, which is not 最高分 on a visit where the scores never arrived.
+const sortKey = useSortKey()
 const listHeading = computed(() =>
-  activeCount.value ? '篩選結果' : SORT_HEADING[state.value.sort])
+  activeCount.value ? '篩選結果' : SORT_HEADING[sortKey.value])
 
 /**
  * The tab title, when the view has a name.
@@ -141,7 +166,7 @@ useSchemaOrg([
       <div class="flex gap-2 overflow-x-auto pb-1 sm:grid sm:grid-cols-3 lg:grid-cols-4 sm:overflow-visible sm:pb-0">
         <FeaturedCard
           v-for="f in featured"
-          :key="`${f.kind}:${f.id}`"
+          :key="f.token"
           :item="f"
         />
       </div>
@@ -151,9 +176,12 @@ useSchemaOrg([
          so handing over to the filterable list doesn't shift the layout. -->
     <div v-if="!core">
       <!-- the seed's own order, not `listHeading`: a heading that varied with
-           the arrival query would mismatch, for the reason given above -->
+           the arrival query would mismatch, for the reason given above. It is
+           `SCORELESS_SORT` rather than the default because that is the order
+           `buildHomeSeed` could actually build at deploy time — 得分 is a
+           promise only the client can keep. -->
       <h2 class="text-sm font-semibold text-highlighted mb-2">
-        {{ SORT_HEADING[DEFAULT_SORT] }}
+        {{ SORT_HEADING[SCORELESS_SORT] }}
       </h2>
       <div class="grid sm:grid-cols-2 gap-3">
         <EpisodeCard

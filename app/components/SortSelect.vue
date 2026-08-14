@@ -1,20 +1,17 @@
 <script setup lang="ts">
 // Rendered in both the mobile sticky bar and the desktop toolbar, so it reads the
 // shared filter state directly rather than taking a model from either caller.
-const state = useFilterState()
-
-// 得分 is only an ordering once there is something to order by — it stays out
-// of the menu while the scores are loading, and for good if voting is off. The
-// exception is a visitor who arrived on `?sort=score-desc`: dropping the option
-// they are currently sorted by would leave the control showing no label at all.
-const { status } = useVotes()
-const items = computed(() => SORT_ITEMS.filter(item =>
-  item.value !== 'score-desc' || status.value === 'ready' || state.value.sort === 'score-desc'))
+// Both halves come from `useEpisodeFilter`: the value is `useSortKey` rather than
+// the raw field, since 得分 is the default and this control is what has to stop
+// claiming it where scores aren't in play, and the option list is defined next to
+// it so the menu can never offer a value the getter rewrites.
+const sortKey = useSortKey()
+const items = useSortItems()
 </script>
 
 <template>
   <USelectMenu
-    v-model="state.sort"
+    v-model="sortKey"
     :items="items"
     value-key="value"
     :search-input="false"
