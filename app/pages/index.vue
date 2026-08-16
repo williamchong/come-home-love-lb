@@ -21,6 +21,24 @@ const seedCharactersById = computed(() => byId(seed.value?.cardCharacters ?? [])
 // mobile filter drawer
 const drawerOpen = ref(false)
 
+/**
+ * Paging, as a projection so the event can be taken where the *old* value is
+ * still readable. `UPagination` emits on every click, including one on the page
+ * already showing, and an `@update:page` handler runs after the model write has
+ * already erased what it would need to compare against — so that click read as
+ * a page change. Programmatic moves (the filter reset, the `?p=` clamp) write
+ * `state.page` directly and never pass through here, which is what keeps this
+ * counting visitors who chose to read further.
+ */
+const page = computed<number>({
+  get: () => state.value.page,
+  set: (p) => {
+    if (p === state.value.page) return
+    state.value.page = p
+    track('filter_page', { page: p })
+  }
+})
+
 // The drawer's search button opens the omnibox, and a palette stacked on a bottom
 // sheet is two overlays deep on the smallest screen — hand over instead. The
 // drawer exists to add a filter, which is what the palette is about to do.
@@ -289,7 +307,7 @@ useSchemaOrg([
             class="mt-6 flex justify-center"
           >
             <UPagination
-              v-model:page="state.page"
+              v-model:page="page"
               :total="filtered.length"
               :items-per-page="PAGE_SIZE"
               :sibling-count="1"

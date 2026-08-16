@@ -1,6 +1,8 @@
 import type { CommandPaletteGroup, CommandPaletteItem } from '@nuxt/ui'
+import type { SearchResultType, SearchSource } from './useAnalytics'
 import type { CoreDataset } from './useDataset'
 import type { FacetItem, FacetSection } from './useFacetIndex'
+import { subjectParams, track } from './useAnalytics'
 import { SECTION_LABEL, useFacetTokens } from './useFacetIndex'
 import { SCORELESS_SORT, bySort, matchesTitle, useFilterState } from './useEpisodeFilter'
 import { FACET_TEXT_CLASS } from '~/types'
@@ -16,8 +18,16 @@ export function useOmnibox() {
   return {
     open,
     term,
-    /** Open it on a blank term — every entry point is "I want to search now". */
-    show: () => {
+    /**
+     * Open it on a blank term — every entry point is "I want to search now".
+     *
+     * `source` is required rather than defaulted: the four doors are the whole
+     * question this event answers (does anyone find ⌘K? does the panel's button
+     * carry the desktop?), and a default would quietly attribute a new one to
+     * whichever door was typed first.
+     */
+    show: (source: SearchSource) => {
+      track('search_open', { source })
       term.value = ''
       open.value = true
     }
@@ -84,15 +94,43 @@ export function useOmniboxGroups(
   const state = useFilterState()
   const tokens = useFacetTokens(state)
 
+  /**
+   * A row the palette was dismissed by reports twice, and the pair is not
+   * redundant: `search_select` is about this surface — what a term was worth,
+   * and which kind of row answered it — while the second event is the thing that
+   * happened, counted alongside the same action taken from the panel or a card.
+   * Reading either one alone would misattribute the other.
+   *
+   * `term` is a default rather than always read from the box, because the 試試
+   * 搜尋 examples only ever show on a blank palette: reading it back there would
+   * report every one of them as an empty search.
+   */
+  const selected = (result_type: SearchResultType, subject?: string, searchTerm = term.value.trim()) =>
+    track('search_select', {
+      search_term: searchTerm,
+      result_type,
+      ...(subject ? subjectParams(subject) : {})
+    })
+
   // Picking a facet adds to the selection, exactly as the panel's chips do —
   // the palette is another way into the same filter, not a separate search.
   function addFacet(token: string) {
-    if (!tokens.value.includes(token)) tokens.value = [...tokens.value, token]
+    selected('facet', token)
+    // Inside the guard: `filter_add` counts selections that actually changed the
+    // filter, so re-picking a chip already on the board doesn't read as demand.
+    if (!tokens.value.includes(token)) {
+      tokens.value = [...tokens.value, token]
+      track('filter_add', { ...subjectParams(token), source: 'omnibox' })
+    }
     open.value = false
   }
 
   function searchTitles(q: string) {
     state.value.q = q
+    // No `search_select` beside it: this row is the only thing that fires
+    // `search`, GA4's own name for the same moment, so a second event would only
+    // be a count that must always equal it.
+    track('search', { search_term: q })
     open.value = false
   }
 
@@ -130,7 +168,10 @@ export function useOmniboxGroups(
       label: ep.title,
       prefix: `第 ${ep.no} 集 · `,
       icon: 'i-lucide-tv',
-      onSelect: () => go(`/episode/${ep.no}`)
+      onSelect: () => {
+        selected('episode', subjectToken('episodes', ep.no))
+        return go(`/episode/${ep.no}`)
+      }
     }))
   })
 
@@ -146,6 +187,7 @@ export function useOmniboxGroups(
           suffix: e.kind,
           icon: 'i-lucide-search',
           onSelect: () => {
+            selected('example', undefined, e.term)
             term.value = e.term
           }
         }))

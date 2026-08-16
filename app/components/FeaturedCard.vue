@@ -17,6 +17,11 @@ const state = useFilterState()
  * the URL the usual way, which is why this doesn't preventDefault.
  */
 function onSelect(e: MouseEvent) {
+  // Every kind reports, modified clicks included: the card was chosen either
+  // way, and the three kinds land on different destinations (a page of its own
+  // for 故事線/角色, the filtered list for a 節日) so only the subject says which
+  // curation is earning its place in the row.
+  track('featured_select', subjectParams(props.item.token))
   if (props.item.kind !== 'tag') return
   if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return
   Object.assign(state.value, clearedFilters(state.value), { tags: [props.item.id] })

@@ -4,6 +4,7 @@ import type { Dataset, TonedPlotline } from './useDataset'
 import { CATEGORY_LABEL, TAG_KIND_LABEL } from '~/types'
 import { characterTone } from '~/utils/entityTone'
 import { TAG_TONES } from '~/utils/tags'
+import { useContentView } from './useAnalytics'
 import { SCORELESS_SORT, bySort } from './useEpisodeFilter'
 import { loadDataset } from './useDataset'
 
@@ -391,6 +392,7 @@ const FACET_VIEW_META: Record<FacetViewKey, string> = {
 }
 
 export function useFacetViewAsync(key: FacetViewKey, value: MaybeRefOrGetter<string>) {
+  useContentView(key, value)
   return useAsyncData(() => `${key}-${toValue(value)}`, () => buildFacetView(key, toValue(value)), CLIENT_LAZY)
 }
 
@@ -420,15 +422,22 @@ async function buildHomeSeed(count: number): Promise<HomeSeed> {
 // A reactive key is enough to refetch on param change: Nuxt watches it with a
 // sync-flush watcher, and its own `watch` option explicitly no-ops while a key
 // change is in flight. Passing both would be dead weight.
+//
+// Each of these is also where the page reports itself (`useContentView`): the
+// route param is already in hand here, one builder answers each detail route,
+// and a page that fetches a subject is a page that showed one.
 export function useEpisodeViewAsync(no: MaybeRefOrGetter<number>) {
+  useContentView('episodes', no)
   return useAsyncData(() => `episode-${toValue(no)}`, () => buildEpisodeView(toValue(no)), CLIENT_LAZY)
 }
 
 export function useCharacterViewAsync(id: MaybeRefOrGetter<string>) {
+  useContentView('characters', id)
   return useAsyncData(() => `character-${toValue(id)}`, () => buildCharacterView(toValue(id)), CLIENT_LAZY)
 }
 
 export function usePlotlineViewAsync(id: MaybeRefOrGetter<string>) {
+  useContentView('plotlines', id)
   return useAsyncData(() => `plotline-${toValue(id)}`, () => buildPlotlineView(toValue(id)), CLIENT_LAZY)
 }
 

@@ -1,6 +1,7 @@
 import type { CoreDataset } from './useDataset'
 import type { Episode } from '~/types'
 import type { ScoreMap } from '#shared/types/votes'
+import { track } from './useAnalytics'
 
 export type SortKey = 'no-asc' | 'no-desc' | 'score-desc'
 
@@ -350,6 +351,10 @@ export function useEpisodeFilter(ds: Ref<CoreDataset | null | undefined>) {
   })
 
   function reset() {
+    // Before the assignment, while there is still something to count: 清除 is
+    // measured by how much it threw away, which is the only signal that says
+    // whether visitors are over-narrowing and starting again.
+    track('filter_clear', { count: activeCount.value })
     Object.assign(state.value, clearedFilters(state.value))
   }
 

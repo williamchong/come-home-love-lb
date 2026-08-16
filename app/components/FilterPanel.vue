@@ -53,6 +53,7 @@ const chips = computed(() => {
       icon: item?.icon ?? 'i-lucide-tag',
       remove: () => {
         tokens.value = tokens.value.filter(t => t !== token)
+        track('filter_remove', subjectParams(token))
       },
       ...facetVisual(item)
     }
@@ -63,6 +64,10 @@ const chips = computed(() => {
     label: `「${state.value.q}」`,
     icon: 'i-lucide-search',
     remove: () => {
+      // Reported as a chip like any other — `q` is not a `SubjectKey`, but this
+      // row is the only way to drop a search on its own, so counting it apart
+      // from the facet chips would hide half of what 清除 is competing with.
+      track('filter_remove', { subject_key: 'q', subject_value: state.value.q })
       state.value.q = ''
     },
     ...facetVisual()
@@ -89,6 +94,7 @@ const facetOrder = useFacetOrder()
 const { scoresInPlay } = useVotes()
 const toggleFacetOrder = () => {
   facetOrder.value = facetOrder.value === 'count' ? 'score' : 'count'
+  track('facet_order', { order: facetOrder.value })
 }
 
 const browse = computed(() => {
@@ -102,19 +108,31 @@ const browse = computed(() => {
 // browse only ever offers tokens that aren't selected, so this is an append
 function addToken(token: string) {
   tokens.value = [...tokens.value, token]
+  track('filter_add', { ...subjectParams(token), source: 'panel' })
 }
 
-// USelectMenu uses undefined for "no selection"; the filter state uses null
+// 提及 is the one control that widens rather than narrows, and it is only
+// offered while a 角色 chip is on the board — so how often it is reached for is
+// a question about that facet. The switch keeps its plain `v-model`; only the
+// event needs a handler.
+const onMentions = (enabled: boolean) => track('filter_mentions', { enabled })
+
+// USelectMenu uses undefined for "no selection"; the filter state uses null.
+// Both bounds report the resulting range rather than the half that moved —
+// 2019–2020 and "from 2019" are different filters and only the pair says which.
+const trackYears = () => track('filter_year', { from: state.value.yearFrom, to: state.value.yearTo })
 const yearFrom = computed<number | undefined>({
   get: () => state.value.yearFrom ?? undefined,
   set: (v) => {
     state.value.yearFrom = v ?? null
+    trackYears()
   }
 })
 const yearTo = computed<number | undefined>({
   get: () => state.value.yearTo ?? undefined,
   set: (v) => {
     state.value.yearTo = v ?? null
+    trackYears()
   }
 })
 const years = computed(() => props.ds.facets.years.map(y => Number(y.value)))
@@ -158,7 +176,7 @@ const years = computed(() => props.ds.facets.years.map(y => Number(y.value)))
       variant="subtle"
       icon="i-lucide-search"
       :ui="{ base: 'justify-start font-normal' }"
-      @click="show()"
+      @click="show(variant)"
     >
       <span class="text-dimmed">搜尋或新增篩選…</span>
     </UButton>
@@ -190,6 +208,7 @@ const years = computed(() => props.ds.facets.years.map(y => Number(y.value)))
       size="xs"
       label="包括配角出場"
       description="除主人翁外，亦包括官方劇情簡介提及該角色的集數"
+      @update:model-value="onMentions"
     />
 
     <div class="flex gap-2 items-center">

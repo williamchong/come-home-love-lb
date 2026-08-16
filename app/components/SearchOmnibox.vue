@@ -32,7 +32,7 @@ const groups = useOmniboxGroups(core, sections)
 // `usingInput` because the default disables a shortcut while any field has
 // focus — a year select or the palette's own box shouldn't swallow the one
 // shortcut that opens it. `meta` becomes Ctrl off macOS on its own.
-defineShortcuts({ meta_k: { usingInput: true, handler: () => show() } })
+defineShortcuts({ meta_k: { usingInput: true, handler: () => show('shortcut') } })
 
 // `open` is app-wide state but the modal is only ever mounted here, so leaving
 // the page with it true (browser Back, the phone's back gesture) would pop the
@@ -54,7 +54,7 @@ onUnmounted(() => {
       icon="i-lucide-search"
       aria-label="搜尋"
       :ui="{ base: 'justify-start gap-2.5 font-normal' }"
-      @click="show()"
+      @click="show('page')"
     >
       <span class="text-dimmed truncate">{{ SEARCH_PLACEHOLDER }}</span>
       <span class="ml-auto hidden sm:flex items-center gap-0.5">

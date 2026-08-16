@@ -1,4 +1,5 @@
 import type { MyVotesResponse, ScoreMap, ScoresResponse, VoteResponse, VoteValue } from '#shared/types/votes'
+import { subjectParams, track } from './useAnalytics'
 
 /**
  * Vote scores: the third dataset tier, and the only one that changes.
@@ -153,11 +154,21 @@ export function useVotes() {
       state.value.scores[subject] = [result.up, result.down]
       state.value.mine[subject] = result.mine
       storeVotes(state.value.mine)
+      // Only what the server kept. The paint above is optimistic and the catch
+      // below undoes it, so reporting at the call would count votes that were
+      // rate-limited away — and `result.mine`, not `next`, because the server is
+      // the authority on what this visitor now holds.
+      track('vote', { ...subjectParams(subject), vote_value: result.mine })
     } catch (error) {
       applyVote(state.value.scores, subject, next, before)
       state.value.mine[subject] = before
       storeVotes(state.value.mine)
       const tooMany = (error as { statusCode?: number })?.statusCode === 429
+      // Anti-abuse is best-effort and its budget was sized by guess: how often a
+      // real visitor hits the hourly cap is the only evidence that it is set
+      // anywhere near right. No subject — a failure is about the limiter, and
+      // the toast the visitor sees is the same either way.
+      track('vote_failed', { reason: tooMany ? 'rate_limited' : 'error' })
       toast.add({
         title: tooMany ? '投票太頻繁' : '投票失敗',
         description: tooMany ? '稍後再試吧。' : '請稍後再試。',

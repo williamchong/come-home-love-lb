@@ -5,6 +5,7 @@ import type { FacetKey } from './useEpisodeFilter'
 import { episodeHash } from '~/utils/episodeLink'
 import { characterTone, familyTone } from '~/utils/entityTone'
 import { TAG_TONES } from '~/utils/tags'
+import { subjectParams, track } from './useAnalytics'
 import { loadDataset } from './useDataset'
 import { episodeNav, positionIn } from './useDetailView'
 import { parseToken } from './useFacetIndex'
@@ -141,7 +142,19 @@ export function usePlaylistAsync(no: MaybeRefOrGetter<number>, arcs: MaybeRefOrG
   const token = computed(() => (typeof route.query.list === 'string' ? route.query.list : null))
   return useAsyncData(
     () => `playlist-${token.value ?? ''}-${toValue(no)}`,
-    () => buildPlaylist(token.value, toValue(no), toValue(arcs)),
+    // Reported on resolution rather than on the click that produced the `?list=`,
+    // because there is no such click to hook: the entry points are plain links
+    // spread across three pages, and a shared URL has no click at all. A null
+    // result is a stale or hand-edited list, which the page silently drops back
+    // to ±1 — nothing to report, since the visitor never saw a playlist.
+    () => buildPlaylist(token.value, toValue(no), toValue(arcs)).then((pl) => {
+      if (pl) {
+        track('playlist_view', {
+          ...subjectParams(pl.token), index: pl.index, total: pl.total
+        })
+      }
+      return pl
+    }),
     { server: false, lazy: true }
   )
 }
