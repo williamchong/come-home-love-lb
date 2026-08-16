@@ -80,6 +80,12 @@ const list = computed(() => (tokens.value.length === 1 && activeCount.value === 
   ? tokens.value[0]!
   : null))
 
+// How many episodes the shell claims to be showing, in the sticky bar and in
+// the drawer's confirm button. Both are reachable before `core` lands, where
+// `filtered` is still empty — the seed's total is the same number an unfiltered
+// `filtered` resolves to a moment later, so the handover changes no digits.
+const shownCount = computed(() => (core.value ? filtered.value.length : seed.value?.meta.total ?? 0))
+
 // `useSortKey`, not `state.sort`: the heading has to name the order the rows are
 // in, which is not 最高分 on a visit where the scores never arrived.
 const sortKey = useSortKey()
@@ -172,77 +178,91 @@ useSchemaOrg([
       </div>
     </section>
 
-    <!-- Prerendered seed — see `useHomeSeedAsync` above. Mirrors the real grid
-         so handing over to the filterable list doesn't shift the layout. -->
-    <div v-if="!core">
-      <!-- the seed's own order, not `listHeading`: a heading that varied with
-           the arrival query would mismatch, for the reason given above. It is
-           `SCORELESS_SORT` rather than the default because that is the order
-           `buildHomeSeed` could actually build at deploy time — 得分 is a
-           promise only the client can keep. -->
-      <h2 class="text-sm font-semibold text-highlighted mb-2">
-        {{ SORT_HEADING[SCORELESS_SORT] }}
-      </h2>
-      <div class="grid sm:grid-cols-2 gap-3">
-        <EpisodeCard
-          v-for="ep in seed?.episodes ?? []"
-          :key="ep.no"
-          :episode="ep"
-          :plotlines-by-id="seedPlotlinesById"
-          :characters-by-id="seedCharactersById"
-        />
-      </div>
+    <!-- Everything below is **one shell**, rendered whether or not `core` has
+         landed, and only its contents switch. That is not tidiness: the seed
+         used to be a bare full-width grid and the filterable list wrapped the
+         same grid in a 300px sidebar column plus a mobile sticky bar, so the
+         handover re-laid-out all 48 cards ~300px narrower on desktop and pushed
+         them down on mobile — a layout shift landing seconds after paint, well
+         outside any input-exclusion window, i.e. straight into CLS. The grid,
+         the aside, the bar and the toolbar row are therefore invariant, and the
+         only things that change are the cards inside and the words on top.
+
+         What still has to be gated on `core` is anything derived from the
+         arrival query: the prerendered HTML is always unfiltered while the
+         client has read `?plots=…` by first render, so an ungated `activeCount`
+         mismatches on a shared link. Same reason the 精選 section above uses
+         `!core ||`. -->
+
+    <!-- mobile: sticky filter bar (desktop uses the sidebar instead) -->
+    <div class="lg:hidden sticky top-(--ui-header-height) z-10 -mx-4 px-4 py-2 mb-3 bg-default/80 backdrop-blur border-b border-default flex items-center gap-3">
+      <UButton
+        icon="i-lucide-sliders-horizontal"
+        color="neutral"
+        variant="subtle"
+        @click="drawerOpen = true"
+      >
+        篩選
+        <UBadge
+          v-if="core && activeCount"
+          color="primary"
+          size="sm"
+        >
+          {{ activeCount }}
+        </UBadge>
+      </UButton>
+      <span class="text-sm text-muted">
+        <span class="font-semibold text-highlighted">{{ shownCount.toLocaleString() }}</span> 集
+      </span>
+      <SortSelect class="ml-auto" />
     </div>
 
-    <template v-else>
-      <!-- mobile: sticky filter bar (desktop uses the sidebar instead) -->
-      <div class="lg:hidden sticky top-(--ui-header-height) z-10 -mx-4 px-4 py-2 mb-3 bg-default/80 backdrop-blur border-b border-default flex items-center gap-3">
-        <UButton
-          icon="i-lucide-sliders-horizontal"
-          color="neutral"
-          variant="subtle"
-          @click="drawerOpen = true"
+    <div class="grid lg:grid-cols-[300px_1fr] gap-6 items-start">
+      <!-- capped to the viewport so the panel's browse block scrolls inside
+           the sticky sidebar instead of running off the bottom of it -->
+      <aside class="hidden lg:flex lg:flex-col lg:sticky lg:top-(--ui-header-height) lg:max-h-[calc(100dvh-var(--ui-header-height))]">
+        <FilterPanel
+          v-if="panelProps"
+          v-bind="panelProps"
+          @reset="reset"
+        />
+        <LoadingState
+          v-else
+          text="載入篩選器…"
+          class="py-4"
+        />
+      </aside>
+
+      <div>
+        <!-- mobile shows sort in the sticky bar instead -->
+        <div class="flex items-center justify-between gap-3 -mt-1 mb-2">
+          <!-- before `core`, the seed's own order rather than `listHeading`: a
+               heading that varied with the arrival query would mismatch, for
+               the reason given above. `SCORELESS_SORT` because that is the
+               order `buildHomeSeed` could actually build at deploy time — 得分
+               is a promise only the client can keep. -->
+          <h2 class="text-sm font-semibold text-highlighted">
+            {{ core ? listHeading : SORT_HEADING[SCORELESS_SORT] }}
+          </h2>
+          <SortSelect class="hidden lg:block" />
+        </div>
+
+        <!-- Prerendered seed — see `useHomeSeedAsync` above. Same grid, in the
+             same column, as the list that replaces it. -->
+        <div
+          v-if="!core"
+          class="grid sm:grid-cols-2 gap-3"
         >
-          篩選
-          <UBadge
-            v-if="activeCount"
-            color="primary"
-            size="sm"
-          >
-            {{ activeCount }}
-          </UBadge>
-        </UButton>
-        <span class="text-sm text-muted">
-          <span class="font-semibold text-highlighted">{{ filtered.length.toLocaleString() }}</span> 集
-        </span>
-        <SortSelect class="ml-auto" />
-      </div>
-
-      <div class="grid lg:grid-cols-[300px_1fr] gap-6 items-start">
-        <!-- capped to the viewport so the panel's browse block scrolls inside
-             the sticky sidebar instead of running off the bottom of it -->
-        <aside class="hidden lg:flex lg:flex-col lg:sticky lg:top-(--ui-header-height) lg:max-h-[calc(100dvh-var(--ui-header-height))]">
-          <FilterPanel
-            v-if="panelProps"
-            v-bind="panelProps"
-            @reset="reset"
+          <EpisodeCard
+            v-for="ep in seed?.episodes ?? []"
+            :key="ep.no"
+            :episode="ep"
+            :plotlines-by-id="seedPlotlinesById"
+            :characters-by-id="seedCharactersById"
           />
-          <LoadingState
-            v-else
-            text="載入篩選器…"
-            class="py-4"
-          />
-        </aside>
+        </div>
 
-        <div>
-          <!-- mobile shows sort in the sticky bar instead -->
-          <div class="flex items-center justify-between gap-3 -mt-1 mb-2">
-            <h2 class="text-sm font-semibold text-highlighted">
-              {{ listHeading }}
-            </h2>
-            <SortSelect class="hidden lg:block" />
-          </div>
-
+        <template v-else>
           <div
             v-if="!filtered.length"
             class="text-center text-muted py-20"
@@ -275,39 +295,41 @@ useSchemaOrg([
               :sibling-count="1"
             />
           </div>
-        </div>
+        </template>
       </div>
+    </div>
 
-      <!-- mobile: filter drawer (bottom sheet) -->
-      <UDrawer
-        v-model:open="drawerOpen"
-        title="篩選劇集"
-      >
-        <template #body>
-          <div class="max-h-[70vh] overflow-y-auto px-1">
-            <FilterPanel
-              v-if="panelProps"
-              v-bind="panelProps"
-              variant="drawer"
-              @reset="reset"
-            />
-            <LoadingState
-              v-else
-              text="載入篩選器…"
-              class="py-8 justify-center"
-            />
-          </div>
-        </template>
-        <template #footer>
-          <UButton
-            block
-            color="primary"
-            @click="drawerOpen = false"
-          >
-            查看 {{ filtered.length.toLocaleString() }} 集
-          </UButton>
-        </template>
-      </UDrawer>
-    </template>
+    <!-- mobile: filter drawer (bottom sheet). Outside the `core` gate because
+         the button that opens it is: it renders nothing until opened, and its
+         body already has a loading state for the tier it needs. -->
+    <UDrawer
+      v-model:open="drawerOpen"
+      title="篩選劇集"
+    >
+      <template #body>
+        <div class="max-h-[70vh] overflow-y-auto px-1">
+          <FilterPanel
+            v-if="panelProps"
+            v-bind="panelProps"
+            variant="drawer"
+            @reset="reset"
+          />
+          <LoadingState
+            v-else
+            text="載入篩選器…"
+            class="py-8 justify-center"
+          />
+        </div>
+      </template>
+      <template #footer>
+        <UButton
+          block
+          color="primary"
+          @click="drawerOpen = false"
+        >
+          查看 {{ shownCount.toLocaleString() }} 集
+        </UButton>
+      </template>
+    </UDrawer>
   </UContainer>
 </template>

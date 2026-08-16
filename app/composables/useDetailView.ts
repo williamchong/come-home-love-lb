@@ -437,6 +437,19 @@ export function usePlotlineViewAsync(id: MaybeRefOrGetter<string>) {
  * so crawlers (and visitors) get real content before the filterable client tier
  * arrives. Deliberately unfiltered — the arrival query is only read on the
  * client, and the seed is replaced the moment `core` resolves.
+ *
+ * The one builder here **without** `CLIENT_LAZY`, and deliberately so — it looks
+ * like an oversight beside its five siblings and isn't. They key off route
+ * params, so a payload for the target route may not exist and `lazy` is what
+ * paints a loading state instead of freezing. `/` is always prerendered, so its
+ * `_payload.json` always carries this key: Nuxt's payload plugin merges it into
+ * `nuxtApp.static.data` in a `beforeResolve` guard (pre-warmed by
+ * `link:prefetch`), and the default `getCachedData` reads it there on client
+ * navigation — so `buildHomeSeed` never actually runs on the client and there
+ * is nothing to be lazy about. Adding `lazy` would only change the fallback
+ * path, and change it for the worse: an empty 48-card grid where the shell has
+ * already reserved the space, which is a bigger layout shift than the freeze it
+ * replaces.
  */
 export function useHomeSeedAsync(count: number) {
   return useAsyncData('home-seed', () => buildHomeSeed(count))

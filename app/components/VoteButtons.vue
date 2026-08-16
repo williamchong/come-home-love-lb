@@ -30,14 +30,21 @@ const buttonColor = (direction: Exclude<VoteValue, 0>) =>
 </script>
 
 <template>
-  <!-- `off` removes the control; `loading` keeps its footprint so a grid of 48
-       cards doesn't reflow when the scores land a tick later. Rendering the
-       same `loading` markup on the server and on the client's first pass is
-       what keeps a prerendered page hydrating cleanly. -->
+  <!-- **All three states share one footprint**, and only `off` is invisible.
+       Reserving space for `loading` is not enough on its own: `loading` is what
+       the server renders and what the client renders on its first pass, so a
+       `v-if` dropping the node on `off` would take the control out of the rail
+       of all 48 cards *after* hydration — and `off` is not exotic, it is any
+       failure of `/api/scores` plus every deploy whose `NUXT_VOTE_SECRET` isn't
+       set yet. `visibility: hidden` keeps the geometry while taking the buttons
+       out of the tab order and the accessibility tree, which `display: none` or
+       an absent node cannot do. Rendering the same `loading` markup on the
+       server and on the client's first pass is what keeps a prerendered page
+       hydrating cleanly. -->
   <div
-    v-if="status !== 'off'"
     class="flex items-center gap-0.5"
-    :class="isRail ? 'flex-col' : 'flex-row'"
+    :class="[isRail ? 'flex-col' : 'flex-row', { invisible: status === 'off' }]"
+    :aria-hidden="status === 'off' || undefined"
   >
     <!-- Thumbs rather than arrows: this is like/dislike, which every viewer
          already knows, not a ranking nudge. -->

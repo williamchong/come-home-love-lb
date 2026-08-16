@@ -89,6 +89,44 @@ const SECTIONS: Section[] = [
 ]
 
 /**
+ * Every section's `FacetItem`s, built once per dataset and shared by every
+ * caller of `useFacetIndex` — one entry per `SECTIONS` entry, in that order.
+ *
+ * The home page instantiates that composable four times: the page itself, the
+ * omnibox, and `FilterPanel`, which is mounted twice (desktop sidebar + mobile
+ * drawer). Each was mapping all seven sections (~600 characters, 191 plot
+ * lines, tags, groups, writers) into fresh objects and resolving a tone per
+ * item — and since 得分 is the default order, the comparator below reads
+ * `net()` for every item and so depends on every score key, which meant one
+ * thumb click rebuilt all four copies from scratch.
+ *
+ * Keyed on the `Dataset` object and holding nothing reactive, which is what
+ * makes module scope safe here. Prerendering shares one `Dataset` across
+ * requests (`useDataset.ts` caches `_fullPromise` at module scope) while giving
+ * each request its own `useState`, so caching the *sorted* sections up here
+ * would leak one request's scores into another's. Only the part that depends on
+ * the data alone is cached; sorting stays per-caller, and copies before it does
+ * — these arrays are shared, and `Array.sort` is in place.
+ */
+const itemCache = new WeakMap<Dataset, FacetItem[][]>()
+
+function itemsFor(data: Dataset): FacetItem[][] {
+  let cached = itemCache.get(data)
+  if (!cached) {
+    cached = SECTIONS.map(s => s.options(data).map((o): FacetItem => ({
+      ...o,
+      token: facetToken(s.key, o.value),
+      section: s.label,
+      icon: s.icon,
+      tone: s.tone?.(data, o.value),
+      color: s.color
+    })))
+    itemCache.set(data, cached)
+  }
+  return cached
+}
+
+/**
  * What the head of each section means: how often a facet appears, or how well
  * it is liked. Shared state so the panel's toggle also reorders the omnibox,
  * which ranks over this same index.
@@ -137,19 +175,12 @@ export function useFacetIndex(ds: MaybeRefOrGetter<Dataset | null | undefined>) 
       ? (a: FacetItem, b: FacetItem) => (net(b.token) ?? 0) - (net(a.token) ?? 0) || b.count - a.count
       : undefined
 
-    return SECTIONS
-      .map((s) => {
-        const items = s.options(data).map((o): FacetItem => ({
-          ...o,
-          token: facetToken(s.key, o.value),
-          section: s.label,
-          icon: s.icon,
-          tone: s.tone?.(data, o.value),
-          color: s.color
-        }))
+    return itemsFor(data)
+      .map((items, i) => {
+        const s = SECTIONS[i]!
         // Options arrive count-sorted from `useDataset`; only re-sort when the
-        // question changed.
-        return { label: s.label, icon: s.icon, items: byScore ? items.sort(byScore) : items }
+        // question changed — and on a copy, since `items` is the shared cache.
+        return { label: s.label, icon: s.icon, items: byScore ? [...items].sort(byScore) : items }
       })
       .filter(s => s.items.length)
   })

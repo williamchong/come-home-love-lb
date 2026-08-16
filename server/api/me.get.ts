@@ -23,12 +23,18 @@ import type { MyVotesResponse, ScoreMap, VoteValue } from '#shared/types/votes'
  * doubling this route's rows read. That is bounded by one person's own voting
  * and never enters the snapshot's per-colo rebuild budget, which is the number
  * the D1 row allowance is actually sized against.
+ *
+ * A first-time visitor skips the query entirely. `useVotes` calls this on every
+ * hard page load, and `resolveVoter` mints an id for anyone without a valid
+ * cookie — so for the majority of traffic this route was putting a D1 round
+ * trip on the critical path to learn that an id created microseconds ago has no
+ * votes. `issued` is that answer without asking.
  */
 export default defineEventHandler(async (event): Promise<MyVotesResponse> => {
   setHeader(event, 'cache-control', 'private, no-store')
 
   const voter = await resolveVoter(event)
-  if (!voter) return { votes: {}, totals: {} }
+  if (!voter || voter.issued) return { votes: {}, totals: {} }
 
   const db = votesDb(event)
   // LEFT JOIN so a vote is still reported even if its totals row is somehow
@@ -39,7 +45,7 @@ export default defineEventHandler(async (event): Promise<MyVotesResponse> => {
          FROM votes v LEFT JOIN totals t ON t.subject = v.subject
         WHERE v.voter_id = ?1`
     )
-    .bind(voter).all<{ subject: string, value: number, up: number | null, down: number | null }>()
+    .bind(voter.id).all<{ subject: string, value: number, up: number | null, down: number | null }>()
 
   const votes: Record<string, VoteValue> = {}
   const totals: ScoreMap = {}

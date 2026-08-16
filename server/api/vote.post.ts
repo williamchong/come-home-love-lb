@@ -8,10 +8,10 @@ import type { VoteResponse } from '#shared/types/votes'
  * double-clicks are idempotent by construction rather than by checking.
  *
  * The write is a batch, which D1 runs as one transaction — a vote and the total
- * it moves are never half-applied. Totals move by a *delta* rather than being
- * recomputed from `votes`, so the cost is one row regardless of how many votes
- * a subject has collected; recounting would make every vote on a popular
- * episode more expensive than the last.
+ * it moves are never half-applied. Totals are **recounted** from `votes` inside
+ * that batch rather than moved by a delta: a delta is O(1) and wrong under
+ * concurrency, for the reasons set out in full at the recount itself. Do not
+ * "optimise" it back — read that comment first.
  */
 export default defineEventHandler(async (event): Promise<VoteResponse> => {
   const body = await readBody<{ subject?: unknown, value?: unknown }>(event)
@@ -29,12 +29,20 @@ export default defineEventHandler(async (event): Promise<VoteResponse> => {
 
   // Two independent reads, so they overlap rather than queue: what this voter
   // already said about this subject, and how much they have been voting.
-  const [previous, recent] = await Promise.all([
-    db.prepare('SELECT value FROM votes WHERE voter_id = ?1 AND subject = ?2')
-      .bind(voter, subject).first<{ value: number }>(),
-    db.prepare('SELECT COUNT(*) AS n FROM votes WHERE voter_id = ?1 AND updated_at > ?2')
-      .bind(voter, now - RATE_WINDOW_MS).first<{ n: number }>()
-  ])
+  //
+  // Both are skipped outright for an id `resolveVoter` just minted, which is
+  // most first votes: it cannot have a row on this subject and cannot have
+  // spent an hourly budget, so the queries can only return what is assumed
+  // below. Their cost is not incidental — the second one counts over this
+  // voter's whole history (see `votes_by_voter_time` in schema.sql).
+  const [previous, recent] = voter.issued
+    ? [null, null]
+    : await Promise.all([
+        db.prepare('SELECT value FROM votes WHERE voter_id = ?1 AND subject = ?2')
+          .bind(voter.id, subject).first<{ value: number }>(),
+        db.prepare('SELECT COUNT(*) AS n FROM votes WHERE voter_id = ?1 AND updated_at > ?2')
+          .bind(voter.id, now - RATE_WINDOW_MS).first<{ n: number }>()
+      ])
 
   const before = asVoteValue(previous?.value) ?? 0
 
@@ -54,11 +62,11 @@ export default defineEventHandler(async (event): Promise<VoteResponse> => {
   }
 
   const write = value === 0
-    ? db.prepare('DELETE FROM votes WHERE voter_id = ?1 AND subject = ?2').bind(voter, subject)
+    ? db.prepare('DELETE FROM votes WHERE voter_id = ?1 AND subject = ?2').bind(voter.id, subject)
     : db.prepare(
         `INSERT INTO votes (voter_id, subject, value, updated_at) VALUES (?1, ?2, ?3, ?4)
          ON CONFLICT (voter_id, subject) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`
-      ).bind(voter, subject, value, now)
+      ).bind(voter.id, subject, value, now)
 
   // Totals are **recounted from the rows**, inside the same transaction as the
   // write, rather than moved by a delta computed from the read above.

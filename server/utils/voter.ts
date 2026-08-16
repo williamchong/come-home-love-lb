@@ -66,10 +66,22 @@ function equalsInConstantTime(a: string, b: string) {
  * signed or trusted. Failing closed is the point: without it an unset secret
  * would mean *every* forged cookie verifies.
  *
+ * `issued` says the id was minted by this very call, and it is worth a row in
+ * the return type because it is a *proof of absence*: an id that has existed
+ * for microseconds cannot have a vote, a total, or an hour of history behind
+ * it. Both callers use it to skip a D1 query whose answer is already known —
+ * and a first visit is the common case, not the rare one.
+ *
  * Never call this from a cached response. The `Set-Cookie` it may add would be
  * cached alongside the body and hand one visitor's id to everyone who follows.
  */
-export async function resolveVoter(event: H3Event): Promise<string | null> {
+export interface Voter {
+  id: string
+  /** True when this call minted the id, i.e. the caller has no rows anywhere. */
+  issued: boolean
+}
+
+export async function resolveVoter(event: H3Event): Promise<Voter | null> {
   const secret = useRuntimeConfig(event).voteSecret
   if (!secret) return null
 
@@ -78,7 +90,7 @@ export async function resolveVoter(event: H3Event): Promise<string | null> {
     // rsplit: the id is base64url and carries no dot, but be explicit about it
     const cut = cookie.lastIndexOf('.')
     const id = cut > 0 ? cookie.slice(0, cut) : ''
-    if (id && equalsInConstantTime(cookie.slice(cut + 1), await sign(id, secret))) return id
+    if (id && equalsInConstantTime(cookie.slice(cut + 1), await sign(id, secret))) return { id, issued: false }
   }
 
   const id = base64url(crypto.getRandomValues(new Uint8Array(16)))
@@ -92,5 +104,5 @@ export async function resolveVoter(event: H3Event): Promise<string | null> {
     path: '/',
     maxAge: COOKIE_MAX_AGE
   })
-  return id
+  return { id, issued: true }
 }
