@@ -10,9 +10,13 @@ html.dark {
   color-scheme: dark;
 }
 
+/* No --font-sans on purpose: Tailwind keeps its system stack and @nuxt/fonts is
+   left with no family to fetch. The Nuxt UI starter's 'Public Sans' sat here
+   until a Lighthouse run priced it — 24 @font-face blocks in the render-blocking
+   sheet and a 26.7 KiB subset chained behind them, for a face with no CJK
+   coverage at all on a site that is ~99% Chinese. It never rendered a glyph of
+   any headline; the system font did, and still does. */
 @theme static {
-  --font-sans: 'Public Sans', sans-serif;
-
   --color-green-50: #EFFDF5;
   --color-green-100: #D9FBE8;
   --color-green-200: #B3F5D1;
