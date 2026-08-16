@@ -152,17 +152,38 @@ export default defineNuxtConfig({
       }
     },
 
-    // Google Analytics via the Nuxt Scripts registry — production builds only,
-    // so dev-server sessions don't pollute the property.
-    // `trigger` is required: without it a registry entry only registers config
-    // defaults for the composable and the script is never loaded globally.
-    // `proxy` must stay off — it rewrites the collection domains to a Nitro
-    // route, and GitHub Pages is static, so the beacons would just 404.
+    /**
+     * Google Analytics via the Nuxt Scripts registry — production builds only,
+     * so dev-server sessions don't pollute the property.
+     *
+     * `trigger` is required: without it a registry entry only registers config
+     * defaults for the composable and the script is never loaded globally.
+     *
+     * An idle callback rather than `onNuxtReady`, which is far later-sounding
+     * than it is: it fires on `app:suspense:resolve`, i.e. the instant hydration
+     * finishes — and on the home page hydration *is* the entry-chunk eval plus
+     * 48 card mounts, so gtag.js landed its ~150 ms of CPU squarely in the TBT
+     * window. This also drops the `rel=preload` @nuxt/scripts emits into the
+     * prerendered HTML under `onNuxtReady`, so its 164 KB is no longer even
+     * discovered while the first screen is still being painted.
+     *
+     * `idleTimeout` is a **deadline, not a delay**: requestIdleCallback runs at
+     * the first idle period or at 3 s, whichever comes first. 3 s is the trade —
+     * past hydration, yet still counting a visitor who reads one episode and
+     * leaves. Don't swap in `{ interaction: [...] }`, which defers further but
+     * only records visits that click: the canonical visit here is landing on a
+     * prerendered /episode/N from search and never interacting, so it would zero
+     * out exactly the organic traffic `siteRoutes()` exists to earn.
+     *
+     * `proxy` must stay off. It rewrites the collection domains to a Nitro
+     * route, putting every beacon through the Worker — the one meter
+     * prerendering everything exists to keep free for votes (see `nitro` below).
+     */
     scripts: {
       registry: {
         googleAnalytics: {
           id: 'G-51ZC433EZX',
-          trigger: 'onNuxtReady',
+          trigger: { idleTimeout: 3000 },
           proxy: false
         }
       }
