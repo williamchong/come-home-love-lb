@@ -401,8 +401,14 @@ function attachMentions(episodes, characters, mentions) {
 // tokens shaped like nicknames — a 阿X / X姐 / 疊字 / English form. Shape matters
 // because the same segment also carries roles and relatives ("熊樹根之表弟",
 // "腦神經外科醫生"), which are descriptions rather than names people search by.
+//
+// The honorific list is a whitelist because the suffixes it *doesn't* name are
+// what roles end in (職員/律師/保安/司機/學生…), so an "any 2-6 char token" rule
+// would pull in ~300 job titles. The Latin prefix is its own branch because a
+// given name is longer than a surname — "Annie姐" is shaped exactly like "芬姐"
+// but doesn't fit in .{1,3}.
 const BIO_SENTENCE = /[。，,]|出生|曾|被|擁有/
-const NICKNAME_SHAPE = /^(?:阿.{1,2}|.{1,3}(?:姐|哥|仔|叔|嬸|伯|婆|少|爺|妹|嫂)|[A-Za-z]{2,10}|(.)\1)$/
+const NICKNAME_SHAPE = /^(?:阿.{1,2}|(?:.{1,3}|[A-Za-z]{4,8})(?:[姐哥仔叔嬸伯婆少爺妹嫂總]|Sir)|[A-Za-z]{2,10}|(.)\1)$/
 function bioNicknames(c) {
   const head = (c.bio || '').split('；')[0].replace(/（[^（）]*）/g, '').trim()
   if (!head || head.length > 24 || BIO_SENTENCE.test(head)) return []
@@ -418,11 +424,14 @@ function bioNicknames(c) {
 function attachAliases(characters, overlay) {
   // A nickname claimed by more than one character identifies none of them
   // ("清潔阿姐" is shared by seven cleaners), so drop those before assigning.
+  // Claimants are counted by name, not id: the roster splits some entries into
+  // 曹小雪 / 曹小雪-2, and rows sharing a name are indistinguishable to a searcher
+  // anyway, so counting them as rivals dropped nicknames for no gain.
   const claims = new Map()
   for (const c of characters) {
     for (const n of bioNicknames(c)) {
       if (!claims.has(n)) claims.set(n, new Set())
-      claims.get(n).add(c.id)
+      claims.get(n).add(c.name)
     }
   }
   const nicknames = overlay.nicknames || {}
