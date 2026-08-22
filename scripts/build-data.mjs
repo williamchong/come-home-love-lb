@@ -324,17 +324,27 @@ function buildTags(episodes, plotlines, characters, overlay, ctx) {
   const tags = []
   const plByName = new Map(plotlines.map(p => [p.name, p]))
 
-  // festivals: keyword scan over titles, one tag per holiday
+  // festivals: keyword scan over episode titles, then a fold-in of the curated
+  // 節日特別篇 plot lines. Every keyword is tested in both arms — a title can
+  // name two feasts — so a match adds a label rather than winning outright.
   const festivalMap = new Map()
-  for (const e of episodes) {
-    for (const [re, label] of FESTIVAL_KEYWORDS) {
-      if (re.test(e.title)) { if (!festivalMap.has(label)) festivalMap.set(label, new Set()); festivalMap.get(label).add(e.no) }
-    }
+  const addFestival = (label, nos) => {
+    let set = festivalMap.get(label)
+    if (!set) festivalMap.set(label, set = new Set())
+    for (const no of nos) set.add(no)
   }
-  // also fold in the curated 節日特別篇 plot lines
+  for (const e of episodes) {
+    for (const [re, label] of FESTIVAL_KEYWORDS) if (re.test(e.title)) addFestival(label, [e.no])
+  }
   for (const p of plotlines.filter(p => p.category === 'festival')) {
     for (const [re, label] of FESTIVAL_KEYWORDS) {
-      if (re.test(p.name) || re.test(p.summary)) { if (!festivalMap.has(label)) festivalMap.set(label, new Set()); for (const pe of p.episodes) festivalMap.get(label).add(pe.no) }
+      if (!re.test(p.name) && !re.test(p.summary)) continue
+      // This arm tags the line's entire episode list off a keyword that may have
+      // matched nothing but a parenthetical, so one stray word mislabels dozens
+      // of episodes at once. A label the line's own name doesn't carry is that
+      // smell — the two bugs in the note above both looked exactly like this.
+      if (!p.name.includes(label)) console.warn(`  ! 節日 plotline 「${p.name}」 emits ${label} for all ${p.episodes.length} eps — label not in its own name`)
+      addFestival(label, p.episodes.map(pe => pe.no))
     }
   }
   for (const [label, nos] of festivalMap) tags.push({ id: `festival-${label}`, kind: 'festival', label, episodeNos: [...nos].sort((a, b) => a - b) })
