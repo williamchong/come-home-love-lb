@@ -9,10 +9,10 @@ import type { VoteValue } from '#shared/types/votes'
 const props = withDefaults(defineProps<{
   /** A `key:value` subject token — build it with `subjectToken`. */
   subject: string
-  /** `rail` stacks vertically for the narrow column on an episode card. */
-  variant?: 'rail' | 'row'
+  /** Button size: `xs` for an episode card's number rail, `sm` everywhere else. */
+  size?: 'xs' | 'sm'
   label?: string
-}>(), { variant: 'row', label: undefined })
+}>(), { size: 'sm', label: undefined })
 
 const { net, myVote, vote, status } = useVotes()
 
@@ -24,7 +24,6 @@ const mine = computed(() => myVote(props.subject))
 const cast = (direction: Exclude<VoteValue, 0>) =>
   vote(props.subject, mine.value === direction ? 0 : direction)
 
-const isRail = computed(() => props.variant === 'rail')
 const buttonColor = (direction: Exclude<VoteValue, 0>) =>
   (mine.value === direction ? 'primary' : 'neutral')
 </script>
@@ -43,14 +42,14 @@ const buttonColor = (direction: Exclude<VoteValue, 0>) =>
        hydrating cleanly. -->
   <div
     class="flex items-center gap-0.5"
-    :class="[isRail ? 'flex-col' : 'flex-row', { invisible: status === 'off' }]"
+    :class="{ invisible: status === 'off' }"
     :aria-hidden="status === 'off' || undefined"
   >
     <!-- Thumbs rather than arrows: this is like/dislike, which every viewer
          already knows, not a ranking nudge. -->
     <UButton
       icon="i-lucide-thumbs-up"
-      :size="isRail ? 'xs' : 'sm'"
+      :size="size"
       :color="buttonColor(1)"
       variant="ghost"
       :disabled="status !== 'ready'"
@@ -58,13 +57,20 @@ const buttonColor = (direction: Exclude<VoteValue, 0>) =>
       :aria-pressed="mine === 1"
       @click.stop.prevent="cast(1)"
     />
+    <!-- The score's width is reserved rather than fitted, which is what keeps
+         the footprint constant *along the row's axis* too. The card pins this
+         row to the right edge of a fixed-width column, so a score arriving as
+         `–` → `12` would otherwise widen the row and walk both thumbs leftward
+         on all 48 cards at the moment `/api/scores` resolves. `min-w-6` covers
+         every score up to three characters; beyond that the row grows again,
+         leftward into the card's own padding. -->
     <span
-      class="tabular-nums text-xs font-medium"
+      class="tabular-nums text-xs font-medium min-w-6 text-center"
       :class="score === undefined ? 'text-dimmed' : 'text-highlighted'"
     >{{ score ?? '–' }}</span>
     <UButton
       icon="i-lucide-thumbs-down"
-      :size="isRail ? 'xs' : 'sm'"
+      :size="size"
       :color="buttonColor(-1)"
       variant="ghost"
       :disabled="status !== 'ready'"

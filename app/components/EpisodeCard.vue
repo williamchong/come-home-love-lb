@@ -67,7 +67,7 @@ const castStyle = (token: string) => toneTextStyle(
     :ui="{ body: 'p-3 sm:p-4' }"
   >
     <div class="flex items-start gap-3">
-      <div class="text-right shrink-0 w-14 flex flex-col items-end">
+      <div class="text-right shrink-0 w-20 flex flex-col items-end">
         <div class="text-lg font-bold tabular-nums">
           {{ episode.no }}
         </div>
@@ -78,7 +78,7 @@ const castStyle = (token: string) => toneTextStyle(
              navigating — see `@click.stop.prevent` in VoteButtons. -->
         <VoteButtons
           :subject="subjectToken('episodes', episode.no)"
-          variant="rail"
+          size="xs"
           :label="`第${episode.no}集`"
           class="mt-1"
         />
