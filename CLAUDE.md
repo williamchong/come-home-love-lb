@@ -88,7 +88,7 @@ Things worth knowing before changing any of it:
 - **Prerender routes live under `$production`.** At the top level their 4,300 entries get inlined into Nuxt's virtual route-rules module and Rollup blows its parser stack on every `pnpm dev`.
 - **Sitemap URLs are passed decoded**, because `@nuxtjs/sitemap` escapes each `<loc>` itself; handing it encoded paths yields `%25E4%25B8%2581…`.
 - **`app/utils/indexable.ts` is shared on purpose.** nuxt.config uses it to pick which characters the sitemap advertises; `character/[id].vue` uses the same predicate for `useRobotsRule()`. ~616 roster footnotes are served but `noindex, follow`, so a page the sitemap promotes can never be one that refuses indexing. Pass `useRobotsRule` a directive **string**: its object form drops false-valued keys, so `{ index: false }` silently emits nothing rather than `noindex`.
-- **`app/utils/tags.ts` imports the tag set statically** rather than routing it through each view. `tagTones` spaces hues across all 17 tags, so every page showing one badge needs them all — carried in payloads that cost ~16 MB across the site and set a 4 KB floor under every page.
+- **`app/utils/tags.ts` imports the tag set statically** rather than routing it through each view. `tagTones` spaces hues across all 18 tags, so every page showing one badge needs them all — carried in payloads that cost ~16 MB across the site and set a 4 KB floor under every page.
 - `nuxt-og-image` and `nuxt-link-checker` are **off**: per-route OG images would mean 4,300 satori renders with a font that has no CJK glyphs, and link-checking every prerendered page adds minutes to CI.
 
 ### Analytics (`app/composables/useAnalytics.ts`)

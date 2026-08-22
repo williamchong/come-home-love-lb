@@ -123,7 +123,7 @@ function festivalTone(name: string, tags: Tag[]): EntityTone {
   const tag = tags.find(t => t.kind === 'festival' && name.includes(t.label))
   const tone = tag && tagTones(tags).get(tag.id)
   if (tone) return tone
-  // Feasts with no tag of their own (盂蘭節, 驚蟄, 兒童節…) still land inside the
+  // Feasts with no tag of their own (愚人節, 驚蟄, 兒童節…) still land inside the
   // 節日 hue range, so the category reads as one family either way.
   const [lo, hi] = TAG_RANGE.festival
   return { hue: Math.round(lo + hash01(name) * (hi - lo)), chroma: 0.13, dl: 0 }

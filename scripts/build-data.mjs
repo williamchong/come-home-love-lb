@@ -241,10 +241,16 @@ function parseCharacters(wikitext) {
 // ---------------------------------------------------------------------------
 const GROUP_LIKE = /(一家|集團|員工|公司|大學|廣場|商場|工業大廈|天廈|聯盟|補習社|工作室|小學|警署|醫院|電影|餐廳|商界|家)$/
 
+// Matched against episode titles *and* against each 節日 plot line's name and
+// summary, so every keyword has to survive editor-written prose. 農曆 on its own
+// matched 盂蘭節's「農曆七月十四」and 除夕 matched the *Gregorian* 除夕／元旦 line
+// — each mislabelling that line's whole episode list as 農曆新年. 鬼節 is
+// Cantonese for 盂蘭節, not Halloween. Don't widen these back.
 const FESTIVAL_KEYWORDS = [
   [/聖誕|平安夜/, '聖誕節'],
-  [/農曆|賀年|年初|除夕|團年|新春|揮春|利是|年宵/, '農曆新年'],
-  [/萬聖|鬼節|南瓜/, '萬聖節'],
+  [/農曆新年|賀年|年初|團年|新春|揮春|利是|年宵/, '農曆新年'],
+  [/萬聖|南瓜/, '萬聖節'],
+  [/盂蘭|鬼節|中元|七月十四/, '盂蘭節'],
   [/情人節/, '情人節'],
   [/母親節/, '母親節'],
   [/父親節/, '父親節'],

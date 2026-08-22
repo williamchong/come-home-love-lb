@@ -6,7 +6,7 @@ import { tagTones } from './entityTone'
 /**
  * The whole tag set, imported statically rather than projected per page.
  *
- * There are only 17 tags (3 KB), but `tagTones` spaces hues across the *entire*
+ * There are only 18 tags (3 KB), but `tagTones` spaces hues across the *entire*
  * set, so any page showing one badge needs all of them. Carrying that through
  * each prerendered route's payload cost ~3.9 KB × 4,300 routes — roughly 16 MB,
  * and it set the floor for every payload on the site. As a static import it is
