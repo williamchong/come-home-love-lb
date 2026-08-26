@@ -106,6 +106,7 @@ Google Analytics, loaded by `@nuxt/scripts`' registry entry in `nuxt.config.ts` 
 
 The **only** hand-maintained data file; everything else in `app/data/` is generated. Add entries here when a tag can't be derived automatically:
 - `episodeFixes` — correct mislabelled/duplicate episode numbers from the source.
+- `plotlines` — curated 故事線 for arcs the wiki's 故事系列 index cannot express, since it models story lines as relationship *pairs* only (黑化Terry線 is the case it was added for). Ids are `curated-<name>` — the one plot-line id carrying CJK, which is why `siteRoutes()` encodes `plotlineRoutes` for prerendering and leaves the sitemap copy decoded.
 - `aliases` — nickname → canonical character name, used during cross-linking to resolve tokens.
 - `nicknames` — canonical name → searchable nickname list (surfaced as facet search aliases).
 - `cameos` — named guest arcs (label + actor + episodes).

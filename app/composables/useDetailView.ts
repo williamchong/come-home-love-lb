@@ -299,7 +299,7 @@ function toFeaturedItem(ds: Dataset, f: FeaturedRef): FeaturedItem | null {
     if (!pl) return null
     return {
       ...f, label: pl.name, meta: CATEGORY_LABEL[pl.category], episodeCount: pl.episodes.length,
-      tone: pl.tone, to: `/plotline/${pl.id}`, token: subjectToken('plotlines', pl.id)
+      tone: pl.tone, to: `/plotline/${encodeURIComponent(pl.id)}`, token: subjectToken('plotlines', pl.id)
     }
   }
   if (f.kind === 'character') {

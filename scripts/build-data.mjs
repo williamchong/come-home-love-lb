@@ -151,6 +151,57 @@ function parsePlotlines(wikitext) {
 }
 
 // ---------------------------------------------------------------------------
+// Curated plot lines (overlay.plotlines), appended to the wiki's index.
+// 故事系列 models story lines as relationship *pairs* — 龍力蓮、龍力王 — so an arc
+// that belongs to one character across a stretch of episodes has nowhere to sit
+// there even when the press named it (黑化Terry). Episodes are spelled as bare
+// numbers and take their titles back out of the episode list, the way cameos and
+// milestones do, so a title the wiki later corrects can never go stale here.
+// ---------------------------------------------------------------------------
+function addOverlayPlotlines(plotlines, episodes, characters, overlay) {
+  const byNo = new Map(episodes.map(e => [e.no, e]))
+  // Ids rather than names: a plot line's member list is resolved through
+  // charactersById, so a name the roster only carries as a duplicate (曹小雪-2)
+  // would pass a name check and still render nothing.
+  const roster = new Set(characters.map(c => c.id))
+  const taken = new Set(plotlines.map(p => p.name))
+  for (const p of overlay.plotlines || []) {
+    const cat = PLOTLINE_CATEGORIES.find(c => c.key === p.category)
+    if (!cat) { console.warn(`  ! curated plotline 「${p.name}」 has unknown category ${p.category} — dropped`); continue }
+    // Plot lines are addressed by name elsewhere in the overlay (a milestone's
+    // parent, a featured ref), so a duplicate would silently shadow the wiki's.
+    if (taken.has(p.name)) { console.warn(`  ! curated plotline 「${p.name}」 collides with an existing line of that name — dropped`); continue }
+    const nos = p.episodes || []
+    const missing = nos.filter(no => !byNo.has(no))
+    if (missing.length) console.warn(`  ! curated plotline 「${p.name}」 lists episodes that do not exist: ${missing.join(',')} — skipped`)
+    const eps = nos
+      .filter(no => byNo.has(no))
+      .sort((a, b) => a - b)
+      .map(no => ({ no, title: byNo.get(no).title }))
+    if (!eps.length) { console.warn(`  ! curated plotline 「${p.name}」 has no resolvable episodes — dropped`); continue }
+    // Same reasoning as resolveFeatured: a renamed character has to surface as a
+    // build warning, or the line simply stops appearing on that character's page.
+    const cast = p.characters || []
+    const strangers = cast.filter(n => !roster.has(n))
+    if (strangers.length) console.warn(`  ! curated plotline 「${p.name}」 names characters not on the roster: ${strangers.join('、')} — dropped from the line`)
+    taken.add(p.name)
+    plotlines.push({
+      // Name-derived, not slug(): a positional id would shift whenever an entry
+      // is inserted above, breaking vote subjects and shared ?list= links that
+      // already quote it. The cost is the only plot-line id carrying CJK — see
+      // `siteRoutes()` in nuxt.config.ts.
+      id: `curated-${p.name}`,
+      category: cat.key,
+      categoryLabel: cat.label,
+      name: p.name,
+      characters: cast.filter(n => roster.has(n)),
+      summary: p.summary || '',
+      episodes: eps
+    })
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Character list (角色列表): roster grouped by family/organisation, plus the
 // 單元角色／特別演出 (unit/special-guest) section. Columns: 演員/角色/簡要介紹.
 // ---------------------------------------------------------------------------
@@ -501,6 +552,8 @@ async function main() {
   attachAliases(characters, overlay)
 
   applyEpisodeFixes(episodes, overlay)
+  // After the fixes, so a curated line can cite an episode by its corrected number.
+  addOverlayPlotlines(plotlines, episodes, characters, overlay)
   // Attach after the fixes so renumbered episodes get the id for their corrected
   // number. The catalogue omits a handful of numbers the wiki lists, so this
   // is sparse.

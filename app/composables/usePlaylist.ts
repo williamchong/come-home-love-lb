@@ -60,7 +60,7 @@ const SOURCES: Record<FacetKey, (ds: Dataset, value: string) => PlaylistSource |
     const pl = ds.plotlinesById.get(value)
     return pl
       ? {
-          label: pl.name, to: `/plotline/${pl.id}`, tone: pl.tone,
+          label: pl.name, to: `/plotline/${encodeURIComponent(pl.id)}`, tone: pl.tone,
           nos: pl.episodes.map(e => e.no), anchored: true
         }
       : null
@@ -111,7 +111,7 @@ async function buildPlaylist(token: string | null, no: number, arcs: ArcNav[]): 
     const arc = arcs.find(a => a.id === parsed.value)
     if (arc) {
       const { id, name, ...position } = arc
-      return { token, no, label: name, to: `/plotline/${id}${episodeHash(no)}`, ...position }
+      return { token, no, label: name, to: `/plotline/${encodeURIComponent(id)}${episodeHash(no)}`, ...position }
     }
   }
 

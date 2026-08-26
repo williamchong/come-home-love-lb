@@ -35,6 +35,7 @@ const plotlines = readData<Plotline[]>('plotlines')
 const tags = readData<Tag[]>('tags')
 
 const distinct = (values: string[]) => [...new Set(values)]
+const encodePath = (path: string) => path.split('/').map(encodeURIComponent).join('/')
 
 /**
  * 家庭・機構 and 編劇 have no file of their own — the facet *is* whatever the
@@ -95,6 +96,8 @@ function siteRoutes() {
   const indexableCharacters = characters.filter(c => isIndexableCharacter(c, inPlotline.has(c.name)))
 
   const episodeRoutes = episodes.map(e => `/episode/${e.no}`)
+  // A curated line's id is `curated-<name>` (data/overlay.json), so plot-line
+  // ids carry CJK too — this list encodes and decodes per list, like the rest.
   const plotlineRoutes = plotlines.map(p => `/plotline/${p.id}`)
   // The facets that finally have somewhere to be. Ids and labels carry CJK,
   // spaces and brackets, so both lists below encode or decode per their own
@@ -114,9 +117,9 @@ function siteRoutes() {
     prerender: [
       ...CRAWLER_ROUTES,
       ...episodeRoutes,
-      ...plotlineRoutes,
-      ...characters.map(c => `/character/${encodeURIComponent(c.id)}`),
-      ...facetPaths.map(p => p.split('/').map(encodeURIComponent).join('/'))
+      ...plotlineRoutes.map(encodePath),
+      ...characters.map(c => encodePath(`/character/${c.id}`)),
+      ...facetPaths.map(encodePath)
     ],
     /**
      * The subset worth indexing. Left **decoded**: @nuxtjs/sitemap escapes each

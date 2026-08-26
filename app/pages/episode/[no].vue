@@ -214,7 +214,7 @@ useSchemaOrg(computed(() => (ep.value
           <ULink
             v-for="p in plotlines"
             :key="p.id"
-            :to="`/plotline/${p.id}${anchor}`"
+            :to="`/plotline/${encodeURIComponent(p.id)}${anchor}`"
             class="hover:underline"
             :style="toneTextStyle(p.tone)"
           >

@@ -107,7 +107,7 @@ useSchemaOrg(computed(() => (ch.value ? [homeBreadcrumb(ch.value.name)] : [])))
           <UButton
             v-for="p in plotlines"
             :key="p.id"
-            :to="`/plotline/${p.id}`"
+            :to="`/plotline/${encodeURIComponent(p.id)}`"
             size="xs"
             color="neutral"
             variant="soft"

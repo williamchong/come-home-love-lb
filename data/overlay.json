@@ -34,6 +34,17 @@
     "馬美娜": ["四太", "Ma姐"]
   },
 
+  "_plotlines_comment": "Curated 故事線, appended to the wiki's 故事系列 index by build-data.mjs. The wiki models story lines as relationship pairs, so add one here only for an arc that belongs to a single character or a cast the pairs cannot express. `episodes` is numbers only — titles are read back out of the episode list. `characters` are canonical roster names; a line shows up on each of their character pages.",
+  "plotlines": [
+    {
+      "name": "黑化Terry線",
+      "category": "family",
+      "characters": ["龍力王", "龍力蓮", "吳家聰"],
+      "episodes": [544, 551, 552, 556, 560, 574, 578, 580, 582, 594, 595, 599, 625],
+      "summary": "龍力蓮以「垂蓮聽政」操控龍力王談生意，力王自恨蠢鈍而轉向中醫館求變聰明；針灸意外刺激了腦內水瘤，他智力暴增並性情大變：架空力蓮、逼使余愛詩與Peter歸順大房、將吳家聰降職，更為與二房爭繼承人之位而盤算政治婚姻。直至頭痛揭出水瘤危及性命，才被力蓮、家聰強行送院手術打回原形，其後逐一贖回黑化期間的所作所為。"
+    }
+  ],
+
   "cameos": [
     {
       "label": "歐陽bobby",
