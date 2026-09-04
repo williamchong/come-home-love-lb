@@ -288,7 +288,34 @@ function mergeCharacter(into, fields) {
   into.homophone ||= fields.homophone
 }
 
-function parseCharacters(wikitext) {
+function parseCharacters(wikitext, overlay) {
+  // Two ways the roster splits one character across performers, and they are not
+  // the same thing. `actorAliases` is one performer under two screen names (雷珍妮
+  // is credited to 陳偉琪 in 雷家 and to 陳思圻, the same actress renamed, in 龍家),
+  // so it holds everywhere. `characterMerges` is a *recast* — genuinely different
+  // people who played one part — so it is scoped to that one 角色 name, or 李豪
+  // would become 吳曠利 wherever else he appears.
+  //
+  // Both feed the fold key only. Each record keeps the actor the wiki credited,
+  // because that is who actually rolled on screen.
+  const actorAliases = overlay.actorAliases || {}
+  const recast = new Map()
+  for (const m of overlay.characterMerges || []) {
+    for (const a of m.actors) recast.set(JSON.stringify([m.name, actorAliases[a] || a]), m.actors[0])
+  }
+  // Both entries are hand-written against a roster that gets refetched, so what
+  // they name can quietly stop existing. Recorded here and reported by
+  // `warnStaleFolds` for the same reason `resolveFeatured` warns: a stale entry
+  // is invisible otherwise — the ghost records it was folding simply come back.
+  const seenFolds = new Set()
+  const seenActors = new Set()
+  // Alias first, then the recast lookup, so the two compose whichever order an
+  // entry happens to list its actors in.
+  const foldActor = (name, actor) => {
+    const canon = actorAliases[actor] || actor
+    seenFolds.add(JSON.stringify([name, canon]))
+    return recast.get(JSON.stringify([name, canon])) || canon
+  }
   const lines = wikitext.split('\n')
   const characters = []
   const groupSet = new Map() // label -> {id,label}
@@ -350,13 +377,14 @@ function parseCharacters(wikitext) {
         continue
       }
 
+      if (actor) seenActors.add(actor)
       const display = name || actor
       if (!display) continue
       const homophone = (/角色名字?諧音[：:](.+?)(?:；|$)/.exec(bio) || [])[1]?.trim()
       addCharacter(display, {
         actor: actor || null, type: 'regular', bio,
         episodeRefs: extractEpisodeRefs(bio), homophone: homophone || null
-      }, name && actor ? [name, actor] : null)
+      }, name && actor ? [name, foldActor(name, actor)] : null)
     }
     for (const c of cameos) {
       if (!c.name) continue
@@ -383,7 +411,30 @@ function parseCharacters(wikitext) {
   }
   flush()
   const groups = [...groupSet.values()]
+  warnStaleFolds(overlay, seenFolds, seenActors)
   return { characters, groups }
+}
+
+/**
+ * Report fold entries the roster no longer matches.
+ *
+ * A stale entry fails silently and invisibly — the rows it was folding just
+ * become separate 0-episode ghosts again, and the id numbering behind them
+ * shifts. Nothing downstream notices, so this is the only place it can surface.
+ * An entry that half-matches (one of 馬漢's four actors recast again) is the
+ * case worth catching, hence per-actor rather than per-entry reporting.
+ */
+function warnStaleFolds(overlay, seenFolds, seenActors) {
+  const aliases = overlay.actorAliases || {}
+  for (const m of overlay.characterMerges || []) {
+    // normalised the same way `foldActor` recorded them, or an actor that is also
+    // an alias source would report stale while folding perfectly well
+    const missing = m.actors.filter(a => !seenFolds.has(JSON.stringify([m.name, aliases[a] || a])))
+    if (missing.length) console.warn(`  ! characterMerges 「${m.name}」 names actors the roster does not credit for that 角色: ${missing.join('、')} — not folded`)
+  }
+  for (const from of Object.keys(overlay.actorAliases || {})) {
+    if (!seenActors.has(from)) console.warn(`  ! actorAliases 「${from}」 is not credited anywhere on the roster — no effect`)
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -647,7 +698,7 @@ async function main() {
   const mentions = JSON.parse(await readFile(join(__dirname, '..', 'data', 'mentions.json'), 'utf8')).mentions || {}
   const episodes = parseEpisodes(epWik)
   const plotlines = parsePlotlines(epWik)
-  const { characters, groups } = parseCharacters(chWik)
+  const { characters, groups } = parseCharacters(chWik, overlay)
   attachAliases(characters, overlay)
 
   applyEpisodeFixes(episodes, overlay)

@@ -12,6 +12,23 @@
     "歐陽bobby": "波比"
   },
 
+  "_actorAliases_comment": "Former screen name -> current one, for performers the roster credits under both. Used ONLY to decide whether two roster rows are the same person; each record still displays the name the wiki credited, since that is what rolled on screen. Note the roster cannot establish these on its own — it wikilinks 陳偉琪 and 陳思圻 to two different articles with no 前名 annotation — so an entry here needs an outside source. This one: 陳思圻 (Vicky Chan Sze Kei), 原名 陳偉琪. Her 雷珍妮 rows are independently one character anyway (both bios open Jenny；, both tag 二房派, both name 龍力士 as husband, and 雷恭's row says 雷珍妮之父, singular).",
+  "actorAliases": {
+    "陳偉琪": "陳思圻"
+  },
+
+  "_characterMerges_comment": "Recasts: one 角色 the roster lists once per performer who played them. Unlike actorAliases these are genuinely different people, so each fold is scoped to one 角色 name — 鄧美欣 also plays 高芬 and must not become 呂善婷 there. There is no single test. Five of these are a rowspan on the 角色 column, i.e. the wiki itself declaring one character across N performers; the other three are separate rows resting on adjacency plus cross-references elsewhere in the roster. Bio text is NOT the criterion: 市場部 gives every extra the bio 職員, while 頌姐's two bios disagree and are still one person. Complete as of this writing — these are 8 of the 15 名 the roster credits to more than one actor; the other 7 (Angela / Fred / Sam / Ivy / 小雲 / Emily / the 島大 Gina) are different people sharing a common given name and stay separate. A stale entry is reported by warnStaleFolds rather than failing silently.",
+  "characterMerges": [
+    { "name": "戴芬", "actors": ["鄭玉儀", "劉素芳"], "note": "rowspan=2 on both 角色 and 簡介, so the bios match because they are one cell; 劉素芳 is credited 配音：謝潔貞. Sa姐's and 戴盈盈's rows each name a single 戴芬" },
+    { "name": "莫東尼", "actors": ["施駿喆", "何晉樂"], "note": "rowspan=2 on 角色 and 簡介; 何晉樂 is credited as 莫湯米, 莫東尼之弟, on the following row" },
+    { "name": "無雙", "actors": ["呂善婷", "鄧美欣"], "note": "rowspan=2 on 角色 and 簡介; 鄧美欣 separately plays 高芬, which is why this fold is 角色-scoped" },
+    { "name": "馬漢", "actors": ["吳曠利", "李豪", "鄭嘉豪", "衛志豪"], "note": "rowspan=4 on 角色. 保安部 runs fixed 包青天 slots 王朝、馬漢、張龍、趙虎; 馬漢 is a 故事主人翁 from ep 1091 to 2311, one recurring guard recast four times" },
+    { "name": "王朝", "actors": ["何沛霖", "莫家淦"], "note": "rowspan=2 on 角色 — the bios differ, so the wiki's own span is the evidence, not the text" },
+    { "name": "莊姑娘", "actors": ["林慧君", "吳洛汶"], "note": "separate rows, both 其他常設角色: 搭橋護老院之護士 / 搭橋護老院護士" },
+    { "name": "頌姐", "actors": ["劉桂芳", "劉沛寧"], "note": "separate rows, bios disagree, but 貝拉群's row says 頌姐之遠房表姐 and 辛申's says 頌姐之男友 — one 頌姐. Fixes ep 1908, whose 頌姐 matches 劉沛寧's bio yet resolved to 劉桂芳's record while the other sat on a ghost page" },
+    { "name": "Gina", "actors": ["王嘉慧", "陳熙蕊"], "note": "weakest of the set: separate, non-adjacent 市場部 rows whose shared bio 職員 is that department's filler string, so it carries no signal. Kept as the likeliest reading; impact is nil since Gina never appears in 集數列表 and both records have 0 episodes. The 島大 Gina (蘇可欣, 學生會之花) is a different person and stays separate" }
+  ],
+
   "_nicknames_comment": "Commonly-used character nicknames for searching the 角色 filter. Keyed by canonical character name. Extend freely.",
   "nicknames": {
     "高栢菲": ["David", "宇宙大胃王", "大胃王"],
