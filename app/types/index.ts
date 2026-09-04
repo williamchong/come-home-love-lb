@@ -12,7 +12,10 @@ export interface Episode {
   title: string
   writers: string[]
   protagonists: string[] // raw 故事主人翁 tokens (characters and groups)
-  focus: string[] // spotlighted characters from （但以…為主線）
+  // The episode's main cast: `protagonists` with each（但以…為主線）token replaced
+  // by the names it narrows to. Empty when nothing was narrowed — so a consumer
+  // wanting "who is this episode about" reads `focus.length ? focus : protagonists`.
+  focus: string[]
   characterIds: string[] // resolved characters appearing in this episode
   mentionedCharacterIds: string[] // looser: characters the official synopsis names
   groupIds: string[] // resolved family/organisation groups

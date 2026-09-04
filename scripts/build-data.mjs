@@ -17,13 +17,62 @@ const read = name => readFile(join(CACHE, name), 'utf8')
 // ---------------------------------------------------------------------------
 // Episode list (集數列表): 15 wikitables, columns 集數/首播日期/主題/編劇/故事主人翁
 // ---------------------------------------------------------------------------
+// Spelled once each because the split and the narrowing have to agree on them:
+// the whole point of the split is to not cut a narrowing apart at its own 、.
+// Fullwidth-only is deliberate here — 373 narrowings in 集數列表, none carrying a
+// halfwidth bracket — unlike the 演員 column, where `actorName` must take both.
+const SEP = /[、，,]/
+const NARROWING = /（[^（）]*?以(.+?)為主[線缐]）/
+
+/** Split on 、 that sit *outside* （）— a narrowing lists its own names with 、. */
+function splitTokens(raw) {
+  const parts = []
+  let depth = 0
+  let cur = ''
+  for (const ch of raw) {
+    if (ch === '（') depth++
+    else if (ch === '）') depth = Math.max(0, depth - 1)
+    if (depth === 0 && SEP.test(ch)) { parts.push(cur); cur = '' } else cur += ch
+  }
+  // An unclosed （ swallows every later separator into one token; a cell that
+  // malformed is better served by the flat split it got before this existed.
+  if (depth !== 0) return raw.split(SEP)
+  parts.push(cur)
+  return parts
+}
+
+/**
+ * The 故事主人翁 cell -> the raw token list, plus the episode's main cast.
+ *
+ * A （但以…為主線） narrows **the one token it is attached to**, not the whole
+ * cell — "接龍集團員工（但以「尋寶圖」網店眾員工為主線）、龔燁、雷珍妮" (#788) means
+ * 尋寶圖 staff *and* 龔燁 *and* 雷珍妮. Splitting the cell before dropping the
+ * parentheticals is what keeps that attachment, and it has to be a paren-aware
+ * split because a narrowing spells its own names with the same 、 separator.
+ *
+ * `focus` is therefore the resolved main cast, not the parenthetical's contents —
+ * which is how every consumer already reads it. It stays empty when nothing was
+ * narrowed, so `focus.length` still means "was narrowed". Resolving per token also
+ * covers a cell that narrows twice (#2284), which no cell-wide anchor could express.
+ */
 function parseProtagonists(raw) {
-  // e.g. "熊氏一家（但以熊樹根、熊若水、熊心如為主線）" -> tokens + focus
-  const focusMatch = /（[^（）]*?以(.+?)為主[線缐]）/.exec(raw)
-  const focus = focusMatch ? focusMatch[1].split(/[、，,]/).map(s => s.trim()).filter(Boolean) : []
-  const head = raw.replace(/（[^（）]*）/g, '') // drop all parentheticals
-  const tokens = head.split(/[、，,]/).map(s => s.trim()).filter(Boolean)
-  return { tokens, focus }
+  const tokens = []
+  const focus = []
+  let narrowed = false
+  for (const part of splitTokens(raw)) {
+    // read before the empty-token guard: a part that is *only* a parenthetical
+    // still carries a narrowing, and skipping it would blank the whole cell
+    const m = NARROWING.exec(part)
+    if (m) {
+      narrowed = true
+      focus.push(...m[1].split(SEP).map(s => s.trim()).filter(Boolean))
+    }
+    const token = part.replace(/（[^（）]*）/g, '').trim()
+    if (!token) continue
+    tokens.push(token)
+    if (!m) focus.push(token)
+  }
+  return { tokens, focus: narrowed ? focus : [] }
 }
 
 function parseEpisodes(wikitext) {
@@ -208,9 +257,35 @@ function addOverlayPlotlines(plotlines, episodes, characters, overlay) {
 function actorName(raw) {
   // strip "(年輕版由X飾演)" notes and wiki links -> plain actor name. Notes are often
   // joined with "；" (e.g. "林淑敏；（年輕版由…）"), so drop the separators the note
-  // removal leaves dangling at the ends.
+  // removal leaves dangling at the ends. Editors mix bracket widths mid-note
+  // ("杜大偉(已退出本劇）"), so both forms open and close one here — the fullwidth
+  // pair alone left that note glued to the name, which then read as a *different*
+  // actor and split 關彼得 into two records.
   const cleaned = cleanText(raw)
-  return trimEdgePunct(cleaned.replace(/（[^（）]*）/g, '').replace(/\s+/g, ''))
+  return trimEdgePunct(cleaned.replace(/[（(][^（）()]*[）)]/g, '').replace(/\s+/g, ''))
+}
+
+/**
+ * Fold a repeat listing of one person into the record that already holds them.
+ *
+ * The first listing wins every scalar, and the one that costs something is
+ * `group`/`subgroup`: 唐依 keeps 天才聯盟補習社 and loses her five other affiliations.
+ * Survivable only because that field is display-only — the 家庭・機構 facet builds
+ * its episodes from 故事主人翁 tokens, never from here. The bio is what actually
+ * accumulates, and it is the reason the repeat rows are worth reading at all:
+ * 葉碧嘉's 管理層 row never mentions her 人事部 or 保安部 stints.
+ *
+ * The survivor keeps its id, so its URL, sitemap entry and any overlay reference
+ * still name the same person — but only the survivor's. A folded row no longer
+ * bumps `idCounts`, so a later same-name record shifts down a number (雷珍妮-2 is
+ * now 陳偉琪's, not 陳思圻's). Every id that moves belongs to a 0-episode ghost.
+ */
+function mergeCharacter(into, fields) {
+  const bio = (fields.bio || '').trim()
+  if (bio && !into.bio.includes(bio)) into.bio = into.bio ? `${into.bio}\n${bio}` : bio
+  // recomputed rather than unioned: the refs are *defined* as this bio's citations
+  into.episodeRefs = extractEpisodeRefs(into.bio)
+  into.homophone ||= fields.homophone
 }
 
 function parseCharacters(wikitext) {
@@ -221,16 +296,38 @@ function parseCharacters(wikitext) {
   let sub = null
   let buf = null
   const idCounts = new Map()
+  // JSON'd (角色, 演員) -> the record already holding that person. Function-scoped
+  // because the repeat listings are across *sections*, not within one table.
+  const byIdentity = new Map()
 
   const flush = () => {
     if (!buf) return
     const table = buf.join('\n')
     const isSpecial = group?.label?.includes('單元') || group?.label?.includes('特別')
     const rows = splitTableRows(table)
-    const addCharacter = (display, fields) => {
+    /**
+     * `identity` is the pair this row folds on, or null if it must never fold.
+     *
+     * The roster re-lists one person under every affiliation they hold — 唐依
+     * appears 6 times (補習社 / 初戀Café / 鯨吞天廈 / 電影工作室 / 湯家 / 島大), each
+     * row a different slice of one life — so without folding her character page
+     * shows one slice and five stranded 0-episode ghosts sit beside it.
+     *
+     * Only a row whose 角色 cell actually named someone may fold. A blank one falls
+     * back to `display = name || actor`, fabricating a character out of the
+     * performer: 范莎莎 has three such rows for three unrelated bit parts, and every
+     * cameo entry is keyed by its guest actor by construction. Folding those would
+     * invent one person out of unrelated appearances — the opposite of the bug.
+     */
+    const addCharacter = (display, fields, identity) => {
+      const key = identity && JSON.stringify(identity)
+      const existing = key && byIdentity.get(key)
+      if (existing) return mergeCharacter(existing, fields)
       let id = display
       if (idCounts.has(id)) { const c = idCounts.get(id) + 1; idCounts.set(id, c); id = `${display}-${c}` } else idCounts.set(id, 1)
-      characters.push({ id, name: display, group: group?.label || null, subgroup: sub, ...fields })
+      const record = { id, name: display, group: group?.label || null, subgroup: sub, ...fields }
+      characters.push(record)
+      if (key) byIdentity.set(key, record)
     }
     const cameos = [] // special section: one entry per explicit-actor block
     let cameo = null
@@ -259,14 +356,16 @@ function parseCharacters(wikitext) {
       addCharacter(display, {
         actor: actor || null, type: 'regular', bio,
         episodeRefs: extractEpisodeRefs(bio), homophone: homophone || null
-      })
+      }, name && actor ? [name, actor] : null)
     }
     for (const c of cameos) {
       if (!c.name) continue
+      // never foldable: a cameo block is keyed by its guest actor, so two of them
+      // share a performer and nothing else — see `addCharacter`
       addCharacter(c.name, {
         actor: c.actor, type: 'special', bio: c.bios.join('\n'),
         roles: [...new Set(c.roles)], episodeRefs: [...c.refs].sort((a, b) => a - b), homophone: null
-      })
+      }, null)
     }
     buf = null
   }
