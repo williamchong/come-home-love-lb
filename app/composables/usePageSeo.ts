@@ -6,6 +6,10 @@ import type { MaybeRefOrGetter } from 'vue'
  * The mirroring is the point: nuxt-seo-utils does *not* derive og:title /
  * og:description from title / description, so a page that sets only the latter
  * silently inherits app.vue's site-level social card.
+ *
+ * The schema.org WebPage node is the same trap a third time: it reads its
+ * description from site config, not from the page's meta, so every detail
+ * page's JSON-LD described the home page until it was handed this one.
  */
 export function usePageSeo(title: MaybeRefOrGetter<string>, description: MaybeRefOrGetter<string | undefined>) {
   useSeoMeta({
@@ -14,6 +18,7 @@ export function usePageSeo(title: MaybeRefOrGetter<string>, description: MaybeRe
     ogTitle: () => toValue(title),
     ogDescription: () => toValue(description)
   })
+  useSchemaOrg([defineWebPage({ description: () => toValue(description) })])
 }
 
 /**

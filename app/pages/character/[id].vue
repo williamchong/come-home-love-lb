@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { SERIES_NAME, pageTitle } from '~/types'
+import { SEARCH_NAME } from '~/types'
 
 const route = useRoute()
 const id = computed(() => decodeURIComponent(String(route.params.id)))
@@ -17,17 +17,24 @@ const tone = computed(() => ch.value && characterTone(ch.value))
 // 焦點劇集 is a playlist too — opening one keeps prev/next on this character.
 const list = computed(() => facetToken('characters', id.value))
 
-const title = computed(() => (ch.value ? pageTitle(ch.value.name) : '找不到此角色'))
+// The result snippet is pitched against Wikipedia and the fan wikis, which
+// outrank this page on a bare name: what they lack is the episode list, so the
+// title and the head of the description say that before the bio does. The
+// series is spelled without its ·, which is how people type it.
+const who = computed(() => ch.value && (ch.value.actor ? `${ch.value.name}（${ch.value.actor} 飾）` : ch.value.name))
+
+const focus = computed(() => (episodes.value.length > 0 ? `主線 ${episodes.value.length} 集` : ''))
+
+// the count sits on the character's side of the ｜, or it reads as the series'
+const title = computed(() => (ch.value ? `${who.value}${focus.value}｜${SEARCH_NAME}` : '找不到此角色'))
 
 const description = computed(() => {
   const c = ch.value
   if (!c) return undefined
-  const who = [c.actor ? `${c.name}（${c.actor} 飾）` : c.name, c.group].filter(Boolean).join('，')
-  return sentences([
-    `《${SERIES_NAME}》${who}`,
-    c.bio,
-    episodes.value.length > 0 && `共 ${episodes.value.length} 集以其為主線`
-  ])
+  const lines = plotlines.value.length > 0 ? `、${plotlines.value.length} 條故事線` : ''
+  // with no episode list to offer, the family is the best hook left
+  const hook = focus.value ? `${focus.value}${lines}，按集重溫` : (c.group ? `，${c.group}` : '')
+  return clip(sentences([`《${SEARCH_NAME}》${who.value}${hook}`, c.bio]))
 })
 
 usePageSeo(title, description)

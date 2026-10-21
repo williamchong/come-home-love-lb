@@ -102,6 +102,8 @@ export interface Meta {
  * for inLanguage.
  */
 export const SERIES_NAME = '愛·回家之開心速遞'
+/** The title as searched: nobody types the ·, and a query for 愛回家 should match it outright. */
+export const SEARCH_NAME = '愛回家之開心速遞'
 export const SITE_TITLE = `${SERIES_NAME} 劇集導航`
 export const SITE_DESCRIPTION = `篩選 2800+ 集《${SERIES_NAME}》，依角色、故事線、CP、節日、客串與里程碑快速找到想重溫的劇集。`
 export const SITE_LOCALE = 'zh-Hant-HK'
